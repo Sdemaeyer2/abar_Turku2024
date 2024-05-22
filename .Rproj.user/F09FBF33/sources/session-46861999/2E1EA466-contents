@@ -1,0 +1,28 @@
+---
+title: "Untitled"
+format: html
+---
+
+
+
+# Part 2
+
+## Column 1
+
+### Outline
+
+The second part of this workshop taps into the critical appraisal of your model. Bayesian analyses (as a matter a fact, all statistical analyses) are full of choices. So, as a researcher, it is our duty to understand what we are doing and provide evidence and arguments for the validity of our choices. To increase reproducibility, we tap into how you can use the WAMBS check-list to inform readers about our choices and decisions on the choice of priors, model convergence, and prior sensitivity. 
+
+## Column 2
+
+### References and resources
+
+Depaoli, S., & Van de Schoot, R. (2017). Improving transparency and replication in Bayesian statistics: The WAMBS-Checklist. Psychological methods, 22(2), 240.
+
+Van de Schoot, R., Veen, D., Smeets, L., Winter, S. D., & Depaoli, S. (2020). A tutorial on using the WAMBS checklist to avoid the misuse of Bayesian statistics. Small Sample Size Solutions: A Guide for Applied Researchers and Practitioners; van de Schoot, R., Miocevic, M., Eds, 30-49.
+
+See the WAMBS tab on this dashboard for the template we use.
+
+Alternative for the WAMBS is the BARG:
+
+Kruschke, J. K. (2021). Bayesian Analysis Reporting Guidelines. Nature Human Behaviour, 5(10), Article 10. <a href=https://doi.org/10.1038/s41562-021-01177-7" target="blank">https://doi.org/10.1038/s41562-021-01177-7 </a>

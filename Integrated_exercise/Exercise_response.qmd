@@ -1,0 +1,877 @@
+---
+title: "Integrated excercise"
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    self-contained: true
+    theme: united
+    fontsize: 1em
+    code-fold: true
+bibliography: references.bib
+---
+
+![](work_in_progress.png){fig-align="center" width="25%"}
+
+# Background behind the dataset
+
+This dataset is a simulated dataset that is based on an existing study of @frumuselu2015. In this study, the key question was whether subtitles help in foreign language acquisition. Spanish students (n = 36) watched episodes of the popular tv-show "Friends" for half an hour each week, during 26 weeks. The students were assigned to 3 conditions:
+
+-   English subtitled (condition "FL")
+
+-   Spanish subtitled (condition "MT")
+
+-   No subtitles (condition "NoSub")
+
+At 3 occasions students got a Fluency test:
+
+-   Before the 26 weeks started
+
+-   After 12 weeks
+
+-   After the experiment
+
+The dependent variable is a measure based on the number of words used in a scripted spontaneous interview with a test taker. The data is structured as follows:
+
+```{r}
+load(file = "Subtitles.RData")
+head(Subtitles, 9)
+```
+
+If we visualize the dataset we get a first impression of the effect of the condition. In this exercise it is your task to do the proper Bayesian modelling and interpretation.
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+
+library(tidyverse)
+
+theme_set(theme_linedraw() +
+            theme(text = element_text(family = "Times", size = 12),
+                  panel.grid = element_blank())
+)
+
+Subtitles %>%
+  ggplot(
+    aes(
+      x = occasion,
+      y = fluency,
+      group = student
+      )
+  ) +
+  geom_path(
+    aes(
+      color = condition
+    )
+  ) 
+```
+
+------------------------------------------------------------------------
+
+```{r, out.height = "40%", out.width="40%", echo = FALSE}
+knitr::include_graphics("friends3.jpeg")
+```
+
+------------------------------------------------------------------------
+
+# 1. Task 1
+
+First we will start by building 4 alternative mixed effects models. In each of the models we have to take into account the fact that we have multiple observations per student. So we need a random effect for students in the model.
+
+-   M0: only an intercept and a random effect for `student`
+
+-   M1: M0 + fixed effect of `occasion`
+
+-   M2: M1 + fixed effect of `condition`
+
+-   M3: M2 + interaction effect between `occasion` and `condition`
+
+Make use of the default priors of `brms`.
+
+Once the models are estimated, compare the models on their fit making use of the leave-one-out cross-validation. Determine which model fits best and will be used to build our inferences.
+
+------------------------------------------------------------------------
+
+<i>Solution</i>
+
+The following code-block shows how the models can be estimated and compared on their fit. Notice how I first create a set of dummy-variables for the categories of the `occasion` and the `condition` variables. This makes it a bit harder (more code writing) to define my model, but it generates some flexibility later on. For instance, when thinking about setting priors, I can set priors for each of the effects of these dummy variables. Also, it will result in shorter names of parameters in my model in the resulting objects for the model.
+
+```{r}
+#| echo: true
+#| eval: false
+#| message: false
+#| error: false
+#| cache: false
+
+library(brms)
+library(tidyverse)
+
+Subtitles <- Subtitles %>%
+  mutate(
+
+    # dummy for Occ2
+    Occ2 = case_when(
+      occasion == "Occ2" ~ 1,
+      occasion == "Occ1" ~ 0,
+      occasion == "Occ3" ~ 0,
+    ),
+    
+    # dummy for Occ3
+    Occ3 = case_when(
+      occasion == "Occ3" ~ 1,
+      occasion == "Occ1" ~ 0,
+      occasion == "Occ2" ~ 0,
+    ),
+    
+    # dummy for FL condition
+    FL = case_when(
+      condition == "FL" ~ 1,
+      condition == "MT" ~ 0,
+      condition == "NoSub" ~ 0,
+    ),
+    
+    # dummy for MT
+    MT = case_when(
+      condition == "MT" ~ 1,
+      condition == "FL" ~ 0,
+      condition == "NoSub" ~ 0,
+    )
+  )
+
+# Estimate the models
+
+M0 <- brm(
+  fluency ~ 1 + (1|student),
+  data = Subtitles,
+  cores = 4,
+  backend = "cmdstanr",
+  seed = 1975
+)
+
+M1 <- brm(
+  fluency ~ 1 + Occ2 + Occ3 + (1|student),
+  data = Subtitles,
+  cores = 4,
+  backend = "cmdstanr",
+  seed = 1975
+)
+
+M2 <- brm(
+  fluency ~ 1 + Occ2 + Occ3 + FL + MT + (1|student),
+  data = Subtitles,
+  cores = 4,
+  backend = "cmdstanr",
+  seed = 1975
+)
+
+M3 <- brm(
+  fluency ~ 1 + Occ2*FL + Occ2*MT + Occ3*FL + Occ3*MT + (1|student),
+  data = Subtitles,
+  cores = 4,
+  backend = "cmdstanr",
+  seed = 1975
+)
+
+# loo cross-validation of the models
+
+loo_M0 <- loo(M0)
+loo_M1 <- loo(M1)
+loo_M2 <- loo(M2)
+loo_M3 <- loo(M3)
+
+loo_models <- loo_compare(
+  loo_M0,
+  loo_M1,
+  loo_M2,
+  loo_M3
+)
+
+print(loo_models, simplify = F)
+
+```
+
+```{r}
+#| echo: false
+#| eval: true
+library(brms)
+library(tidyverse)
+
+Subtitles <- Subtitles %>%
+  mutate(
+
+    # dummy for Occ2
+    Occ2 = case_when(
+      occasion == "Occ2" ~ 1,
+      occasion == "Occ1" ~ 0,
+      occasion == "Occ3" ~ 0,
+    ),
+    
+    # dummy for Occ3
+    Occ3 = case_when(
+      occasion == "Occ3" ~ 1,
+      occasion == "Occ1" ~ 0,
+      occasion == "Occ2" ~ 0,
+    ),
+    
+    # dummy for FL condition
+    FL = case_when(
+      condition == "FL" ~ 1,
+      condition == "MT" ~ 0,
+      condition == "NoSub" ~ 0,
+    ),
+    
+    # dummy for MT
+    MT = case_when(
+      condition == "MT" ~ 1,
+      condition == "FL" ~ 0,
+      condition == "NoSub" ~ 0,
+    )
+  )
+
+loo_models <- readRDS(file = "loo_models.RDS")
+
+print(loo_models, simplify = F)
+```
+
+Based on the model comparison we can conclude that the final model (M3) fits the data best. We will use this model in the next sections to build our inferences.
+
+::: callout-note
+## Note
+
+When doing the loo comparison you might encounter a warning message saying that there is one or more observations showing a Pareto K higher than .7. What this means is that the leave-one-out cross-validation might be biased. The warning message suggest 'moment matching' as potential solution. You could try this. In my experience, the impact of one or two observations suffering a Pareto K value that is too high, is rather small or even negligible. But it is always better to double check. Also, be aware that the moment matching solution creates a very slow estimation of the loo!
+:::
+
+------------------------------------------------------------------------
+
+# 2. Task 2
+
+Now that we have established the best fitting model, it is our task to approach the model critically before delving into the interpretation of the results.
+
+Apply the different steps of the WAMBS check-list template for the final model.
+
+## Subtask 2.1: what about the priors?
+
+What are the default `brms` priors? Do they make sense? Do they generate impossible datasets? If necessary, specify your own (weakly informative) priors and approach the critically as well.
+
+------------------------------------------------------------------------
+
+<i> Potential Solution </i>
+
+Let's start with a prior predictive check. 
+
+```{r}
+#| echo: true
+#| eval: false
+
+M3_priors <- brm(
+  fluency ~ 1 + Occ2*FL + Occ2*MT + Occ3*FL + Occ3*MT + (1|student),
+  data = Subtitles,
+  cores = 4,
+  backend = "cmdstanr",
+  seed = 1975,
+  sample_prior = "only"
+)
+
+pp_check(M3_priors)
+```
+As you might notice, you will get an error message saying that sampling from the priors is not possible. This is due to the fact that `brms` by default uses flat priors. So, this generates this error message.
+
+To get the priors used by `brms` we use the `get_prior()` command.
+
+```{r}
+get_prior(
+  fluency ~ 1 + Occ2*FL + Occ2*MT + Occ3*FL + Occ3*MT + (1|student),
+  data = Subtitles
+)
+```
+
+For all the beta's (fixed effects) `brms` uses a flat prior. Actually, that is something that is better avoided. More appropriate would be to come up with our own priors. Let's think about this. All the explanatory variables are dummy variables. So, they quantify differences between groups of observations (based on time or condition). 
+
+As we have no prior idea about the directions of the effects of condition nor of the effect of time, we could use a prior distribution centred around 0 (most probability assigned to no effect). 
+
+Next, we have to think about setting the width of the prior. For instance, if we use a normal distribution to express our prior belief, we have to think about the sd for the normal distribution that captures our prior belief. In our case, the sd has to be high enough to assign some probability to even very strong positive and negative effects. Here, it is important that we know our data well. I mean, we need to know the scale of our dependent variable. This variable has an sd of `r sd(Subtitles$fluency, na.rm=T)`. So, now we can use Effect Sizes as a reference frame. Remember, an effect size of 0.8 (or higher) indicates a strong effect (Cohen's d). So, on our scale of the `fluency` variable an effect of 5.7 (= 7.1 * 0.8) indicates a strong effect. Let's use the value 5.7 as our sd for priors for the effects of our dummy variables. Visually the prior would look like this:
+
+```{r}
+# Setting a plotting theme
+
+library(ggplot2)
+library(ggtext) # to be able to change the fonts etc in graphs
+
+theme_set(theme_linedraw() +
+            theme(text = element_text(family = "Times", size = 8),
+                  panel.grid = element_blank(),
+                  plot.title = element_markdown())
+)
+
+Prior_betas <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0, sd = 5.7), # 
+    xlim = c(-15,15)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the effects of independent variables",
+       subtitle = "N(0,5.7)")
+
+Prior_betas
+```
+
+Notice that even effects of -10 and 10 (almost effect sizes of -2 and 2) still get a decent amount of probability in our prior density function. 
+
+Let's set these priors and try to apply a pp_check(). Notice that I set the priors for all slopes (`class = "b"`) at once. For the intercept I stick with the default prior by `brms`. 
+
+```{r}
+#| message: false
+#| error: false
+#| eval: false
+
+
+Custom_prior <- c(
+  set_prior(
+    "normal(0,5.7)",
+    class = "b"
+  )
+)
+
+M3_priors <- brm(
+  fluency ~ 1 + Occ2*FL + Occ2*MT + Occ3*FL + Occ3*MT + (1|student),
+  data = Subtitles,
+  cores = 4,
+  backend = "cmdstanr",
+  seed = 1975,
+  prior = Custom_prior,
+  sample_prior = "only"
+)
+
+pp_check(M3_priors)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+
+library(here)
+
+M3_priors <- readRDS(
+  here("Integrated_exercise", "M3_priors.RDS")
+)
+
+pp_check(M3_priors)
+```
+
+
+The simulated data goes all the way! But it doesn't generate extremely high or low observations and from this check we also learn that we have set quiet broad priors as they result in big differences between simulated datasets based on our model now.
+
+Time to apply these priors (that we somehow understand now) to estimate the real model.
+
+```{r}
+#| message: false
+#| error: false
+#| eval: false
+#| echo: true
+
+Custom_prior <- c(
+  set_prior(
+    "normal(0,5.7)",
+    class = "b"
+  )
+)
+
+M3b <- brm(
+  fluency ~ 1 + Occ2*FL + Occ2*MT + Occ3*FL + Occ3*MT + (1|student),
+  data = Subtitles,
+  cores = 4,
+  backend = "cmdstanr",
+  seed = 1975,
+  prior = Custom_prior
+  )
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+
+library(here)
+
+M3b <- readRDS(
+  here("Integrated_exercise", "M3b.RDS")
+)
+```
+
+---
+
+## Subtask 2.2: did the model converge properly?
+
+Perform different checks on the convergence of the model.
+
+---
+
+<i> Possible solution </i>
+
+Let's start by checking the trace-plots.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+library(ggmcmc)
+
+Model_chains <- ggs(M3b)
+
+Model_chains %>%
+  filter(Parameter %in% c(
+    "b_Intercept",
+    "b_FL", 
+    "b_MT", 
+    "b_Occ2", 
+    "b_Occ3",
+    "b_FL:Occ2",
+    "b_FL:Occ3",
+    "b_MT:Occ2",
+    "b_MT:Occ3"
+    )
+  ) %>%
+  ggplot(aes(
+    x   = Iteration,
+    y   = value, 
+    col = as.factor(Chain)))+
+  geom_line() +
+  facet_grid(Parameter ~ .,
+             scale  = 'free_y',
+             switch = 'y') +
+  labs(title = "Caterpillar Plots for the parameters",
+       col   = "Chains")
+```
+
+Looking at the trace-plots, we can conclude that all chains mixed very well. This is already a first indication of succesful convergence.
+
+Next, we can check the R-hat statistic for each of the parameters. With the following plot we get a visual overview of all the R-hat statistics (notice the large number of parameters, because we also have random effects in our model):
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+
+library(bayesplot)
+
+bayesplot::mcmc_rhat(brms::rhat(M3b), 
+  size = 1) +
+  yaxis_text(hjust = 1) # to print parameter names
+
+```
+
+None of the parameters shows a high R-hat statistic. They all are below the threshold of 1.05, indicating that all parameters converged well.
+
+Time to get insight in the amount of autocorrelation. A first check is plotting the ratio of the number of Effective Sample Sizes to the Total Sampel Sizes for all the parameters. Remember that this ratio should be above 0.1 to be sure that the amount of autocorrelation is acceptable. Following code gives a visual overview of these ratios.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+
+mcmc_neff(
+  brms::neff_ratio(M3b)
+  ) + 
+  yaxis_text(hjust = 1)
+```
+
+From the plot we learn that for all the parameters the ratio is above 0.1. So, we can conclude that the amount of autocorrelation is not problematic for any of the parameters.
+
+---
+
+## Subtask 2.3: does the posterior distribution histogram have enough information?
+
+Check if the posterior distribution histograms of the different parameters are informative enough to substantiate our inferences.
+
+---
+
+<i> Possible solution </i>
+
+To evaluate this, we create histograms based on the draws for our parameter models. We will apply this first for all main effects.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+library(patchwork)
+
+posterior_PD <- as_draws_df(M3b)
+
+post_intercept <- 
+  posterior_PD %>%
+  select(b_Intercept) %>%
+  ggplot(aes(x = b_Intercept)) +
+  geom_histogram() +
+  ggtitle("Intercept") 
+
+post_Occ2 <- 
+  posterior_PD %>%
+  select(b_Occ2) %>%
+  ggplot(aes(x = b_Occ2)) +
+  geom_histogram() +
+  ggtitle("Beta Occ2") 
+
+post_Occ3 <- 
+  posterior_PD %>%
+  select(b_Occ3) %>%
+  ggplot(aes(x = b_Occ3)) +
+  geom_histogram() +
+  ggtitle("Beta Occ3") 
+
+post_FL <- 
+  posterior_PD %>%
+  select(b_FL) %>%
+  ggplot(aes(x = b_FL)) +
+  geom_histogram() +
+  ggtitle("Beta FL") 
+
+post_MT <- 
+  posterior_PD %>%
+  select(b_MT) %>%
+  ggplot(aes(x = b_MT)) +
+  geom_histogram() +
+  ggtitle("Beta MT") 
+
+
+post_intercept + post_Occ2 + post_Occ3 + post_FL + post_MT +
+  plot_layout(ncol = 3)
+```
+
+These plots show clear slopes and a peak, indicating that the posterior is informative enough for each of these parameters.
+
+Now, let's do the same for the interaction effects.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+post_Occ2_FL <- 
+  posterior_PD %>%
+  select(`b_Occ2:FL`) %>%
+  ggplot(aes(x = `b_Occ2:FL`)) +
+  geom_histogram() +
+  ggtitle("Beta Occ2:FL") 
+
+post_Occ2_MT <- 
+  posterior_PD %>%
+  select(`b_Occ2:MT`) %>%
+  ggplot(aes(x = `b_Occ2:MT`)) +
+  geom_histogram() +
+  ggtitle("Beta Occ2:MT") 
+
+post_Occ3_FL <- 
+  posterior_PD %>%
+  select(`b_FL:Occ3`) %>%
+  ggplot(aes(x = `b_FL:Occ3`)) +
+  geom_histogram() +
+  ggtitle("Beta Occ3:FL") 
+
+post_Occ3_MT <- 
+  posterior_PD %>%
+  select(`b_MT:Occ3`) %>%
+  ggplot(aes(x = `b_MT:Occ3`)) +
+  geom_histogram() +
+  ggtitle("Beta Occ3:MT") 
+
+post_Occ2_FL + post_Occ2_MT + post_Occ3_FL + post_Occ3_MT +
+  plot_layout(ncol = 3)
+
+```
+
+Here the conclusion is the same. These histograms show no problematic cases.
+
+
+## Subtask 2.4: how well does the model predict the observed data?
+
+Perform posterior predictive checks based on the model.
+
+---
+
+<i> Possible solutions </i>
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+
+pp_check(M3b)
+```
+
+
+## Subtask 2.5: what about prior sensitivity of the results?
+
+Finally, we have to check if the results of our model are not to dependent on the priors we specified in the model.
+
+# 3. Task 3
+
+Now a more general task. Make different visualizations of the model results.
+
+One of the possible visualizations could be a rather complex one. Remember, there are 3 conditions and 3 occasions. What I like to see is a plot showing the expected means for each of the conditions on each of the 3 occasions.
+
+And what do we learn about the progress between Occ1 and Occ2 in each of the groups? And what about the progress between Occ2 and Occ3?
+
+---
+
+<i> Possible solution </i>
+
+Let's start tackling this challenge: 
+
+|"One of the possible visualizations could be a rather complex one. Remember, there are 3 conditions and 3 occasions. What I like to see is a plot showing the expected means for each of the conditions on each of the 3 occasions."
+
+Starting point: create an object containing the draws from the posterior based on model M3b.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+posterior_M3b <- as_draws_df(M3b)
+
+```
+
+The next step is calculating some predicted means, based on combinations of our dummy variables in the model. This is a 'tricky' step because we have to keep in mind that the model also contains interaction effects.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+posterior_M3b <- posterior_M3b %>%
+  mutate(
+    
+    # calculate expected mean for Occ1 condition NoSub (that's just our intercept)
+    Occ1_NoSub = b_Intercept,
+    # calculate expected mean for Occ1 condition FL (add main effect of FL)
+    Occ1_FL = b_Intercept + b_FL,
+    # calculate expected mean for Occ1 condition MT (add main effect of MT)
+    Occ1_MT = b_Intercept + b_MT,
+
+    # calculate expected mean for Occ2 condition NoSub (add main effect of Occ2)
+    Occ2_NoSub = b_Intercept + b_Occ2,
+    # calculate expected mean for Occ2 condition FL (add main effects and interaction term)
+    Occ2_FL = b_Intercept + b_Occ2 + b_FL + `b_Occ2:FL`,
+    # calculate expected mean for Occ2 condition MT (add main effects and interaction term)
+    Occ2_MT = b_Intercept + b_Occ2 + b_MT + `b_Occ2:MT`,
+
+    # calculate expected mean for Occ3 condition NoSub (add main effect of Occ2)
+    Occ3_NoSub = b_Intercept + b_Occ3,
+    # calculate expected mean for Occ3 condition FL (add main effects and interaction term)
+    Occ3_FL = b_Intercept + b_Occ3 + b_FL + `b_FL:Occ3`,
+    # calculate expected mean for Occ3 condition MT (add main effects and interaction term)
+    Occ3_MT = b_Intercept + b_Occ3 + b_MT + `b_MT:Occ3`
+
+  )
+```
+
+Now that we have calculated these estimated means, we can use these columns to create plots. What 
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+library(ggplot2)
+library(ggdist)
+
+posterior_M3b %>%
+
+  # First: select only the relevant columns of our posterior draws object
+  select(
+    Occ1_NoSub, Occ1_FL, Occ1_MT,
+    Occ2_NoSub, Occ2_FL, Occ2_MT,
+    Occ3_NoSub, Occ3_FL, Occ3_MT,
+  ) %>%
+  
+  # Second: pivot everything longer to get two columns
+  # column called `name` containing the name of the parameter
+  # calumn called `value` containing the value for that parameter in that draw
+  pivot_longer(everything()) %>%
+  
+  # Now create new variable that indicates the Occasion because I want to use that as X-axis
+  # And create new variable that indicates the group (NoSub, MT, or FL) to make groups in the plot
+  mutate(
+    Occasion = case_when(
+      name == "Occ1_NoSub" | name == "Occ1_FL" | name == "Occ1_MT" ~ "Occ1",
+      name == "Occ2_NoSub" | name == "Occ2_FL" | name == "Occ2_MT" ~ "Occ2",
+      name == "Occ3_NoSub" | name == "Occ3_FL" | name == "Occ3_MT" ~ "Occ3",
+    ),
+    Group = case_when(
+      name == "Occ1_NoSub" | name == "Occ2_NoSub" | name == "Occ3_NoSub" ~ "No subtitles",
+      name == "Occ1_FL"    | name == "Occ2_FL"    | name == "Occ3_FL"    ~ "Foreign language",
+      name == "Occ1_MT"    | name == "Occ2_MT"    | name == "Occ3_MT"    ~ "Mother tongue",
+    )
+  ) %>%
+  
+  # Time to create the plot
+  ggplot(
+    aes(x = Occasion, 
+        y = value, 
+        group = Group, 
+        fill = Group)  # identify the experimental groups by the fill color
+  ) +
+  stat_halfeye(
+    .width = c(.5, .89),
+    alpha = .4 # make the fill color of the density plots more transparent
+  )
+
+```
+
+The next challenge: 
+
+|"And what do we learn about the progress between Occ1 and Occ2 in each of the groups? And what about the progress between Occ2 and Occ3? Is progress between two occasions different in each of the conditions? "
+
+These questions can be compared with using tests on <i>estimated marginal means</i> and post-hoc testing by making use of contrasts in the frequentist realm. 
+
+We can first answer these questions by making visualisations of the posterior probability distributions for the estimated differences between occasions in each of the conditions. To make plots we rely again on our draws drawn from our posterior probability distributions. As a starting point we use the `posterior_M3b` object created above.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+# Start by creating difference scores between occasions based on draws
+
+posterior_M3b <- posterior_M3b %>%
+  mutate(
+
+    # Difference between occasions for condition NoSub
+    Occ2_Occ1_NoSub = Occ2_NoSub - Occ1_NoSub,
+    Occ3_Occ2_NoSub = Occ3_NoSub - Occ2_NoSub,
+
+    # Difference between occasions for condition FL
+    Occ2_Occ1_FL = Occ2_FL - Occ1_FL,
+    Occ3_Occ2_FL = Occ3_FL - Occ2_FL,
+
+    # Difference between occasions for condition MT
+    Occ2_Occ1_MT = Occ2_MT - Occ1_MT,
+    Occ3_Occ2_MT = Occ3_MT - Occ2_MT
+    
+  )
+
+# Create the visualisation
+
+posterior_M3b %>%
+
+  # select only the relevant columns for creating the plot
+  select(
+    Occ2_Occ1_NoSub, Occ3_Occ2_NoSub,
+    Occ2_Occ1_FL, Occ3_Occ2_FL,
+    Occ2_Occ1_MT, Occ3_Occ2_MT,
+  ) %>%
+  
+  # do the pivot_longer to create one vector of values and a vector of parameter names
+  pivot_longer(
+    everything( )
+    ) %>%
+
+ # Create variables that help identify groups of parameters to color the distributions
+  mutate(
+    Occasion = case_when(
+      name == "Occ2_Occ1_NoSub" | name == "Occ2_Occ1_FL" | name == "Occ2_Occ1_MT" ~ "Progress Occ1 Occ2",
+      name == "Occ3_Occ2_NoSub" | name == "Occ3_Occ2_FL" | name == "Occ3_Occ2_MT" ~ "Progress Occ2 Occ3"),
+    Group = case_when(
+      name == "Occ2_Occ1_NoSub" | name == "Occ3_Occ2_NoSub"  ~ "No subtitles",
+      name == "Occ2_Occ1_FL" | name == "Occ3_Occ2_FL"  ~ "Foreign language",
+      name == "Occ2_Occ1_MT" | name == "Occ3_Occ2_MT"  ~ "Mother tongue",
+    )
+  ) %>%
+
+  ggplot(
+    aes(
+      x = value,
+      y = Group
+    )
+  ) + 
+
+  # Let's plot interval visualisations
+  
+  stat_pointinterval(
+    .width = c(.5, .89)  
+    ) +
+  scale_y_discrete(name = "") +           # Drop the label of the y-scale
+  scale_x_continuous(name = "Fluency") +  # Name the x-scale
+  facet_wrap(.~Occasion)
+  
+```
+
+From this visualisation we learn that the progress between occasion 1 and 2 is rather similar in both subtitle groups (intervals strongly overlap). The students in the condition without subtitles make a smaller progress between occasion 1 and occasion 2 than the students in both subtitling conditions.
+
+Focussing on the progress between occasion 2 and 3, we see that the progress of the students in the foreiign language subtitling condition stands out from the progress made in the two other conditions.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+hypothesis(
+  posterior_M3b,
+  hypothesis = "Occ2_Occ1_MT > Occ2_Occ1_FL"
+)
+```
+
+If we wrap this `hypothesis()` part within a `plot()` function, we get a visualization of the posterior probability distribution of the difference in progress for the two subtitling conditions.
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+plot(
+  hypothesis(
+    posterior_M3b,
+    hypothesis = "Occ2_Occ1_MT > Occ2_Occ1_FL"
+    )
+)
+```
+
+This visualization shows that a great amount of credible estimates of this difference in progress between both subtitling conditions is situated around zero, with high probabilities for both a negative and positve difference. In other words, most of the evidence shows that we are not sure to state whether both subtitling conditions differ in the progress in fluency they induced between occasion 1 and occasion 2.
+
+Now, let's focus on the difference between occasion 2 and occasion 3: how much evidence is there that this progress is stronger in the condition of foreign language subtitling compared to the condition of mother tongue subtitling?
+
+```{r}
+#| echo: true
+#| message: false
+#| error: false
+#| cache: false
+#| warning: false
+
+hypothesis(
+  posterior_M3b,
+  hypothesis = "Occ3_Occ2_FL > Occ3_Occ2_MT"
+)
+
+plot(
+ hypothesis(
+  posterior_M3b,
+  hypothesis = "Occ3_Occ2_FL > Occ3_Occ2_MT"
+ ) 
+)
+```
+
+# References

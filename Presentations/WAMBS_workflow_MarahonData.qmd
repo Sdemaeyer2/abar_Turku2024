@@ -1,0 +1,533 @@
+---
+title: "Checks for the final model"
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    self-contained: true
+    theme: united
+    fontsize: 1em
+    code-fold: true
+editor: visual
+bibliography: references.bib
+---
+
+::: callout-note
+## Note
+
+This is a template that can be used to systematically inspect the Bayesian Modeling process, mainly inspired on the WAMBS checklist (see @depaoli2020 for a tutorial). Based on this report it is an option to create a supplementary document for the analyses presented in the actual paper.
+:::
+
+# 1. Before estimating the model
+
+## 1.1 Do you understand the priors?
+
+An important aspect of the Bayesian workflow considers checking the priors that were used in the model [@schad2021]. In this document we will first report on the definition of the priors, and run some analyses to check the priors used for the final model. All the code and results are included in this document. The necessary files (being the raw data file) can be retrieved from OSF (**make link here**).
+
+### 1.1.1 Preparation
+
+We will visualize the priors and we will run "prior predictive checks". Therefore we need to load the dataset and a number of packages. This is done in the following code block.
+
+::: callout-note
+This template is prepared as material for the *ABAR 2023* workshop. In that workshop the data used as a running example are data on predicting how fast marathons are run and whether some variables on the training before the training impact the results. The dependent variable is `MarathonTimeM` and we want to know whether there is an impact of average number of kilometers in a week ran during the preparation phase (`km4week`) and average speed while training during the preparation phase (`sp4week`).
+:::
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+
+library(here)       # to easily access files
+library(tidyverse)  # for all data wrangling and plotting
+library(brms)       # to have functions to run and check models
+library(ggmcmc)     # to generate some information on our model 
+library(bayesplot)  # to use certain plotting functions
+library(mcmcplots)  # to use certain plotting functions
+library(patchwork)  # to combine multiple ggplots into one plot
+library(priorsense) # to perform prior sensibility analyses
+
+load(
+  here(
+    "Presentations",
+    "MarathonData.RData")
+  )
+
+MarathonTimes_Mod2 <- readRDS(
+  here(
+    "Presentations",
+    "Output",
+    "MarathonTimes_Mod2.RDS"
+  )
+)
+
+```
+
+These are the different packages used in this template: [@here; @tidyverse; @brms; @ggmcmc; @bayesplot; @mcmcplots; @patchwork; @priorsense-2]
+
+### 1.1.2 Specification of the priors
+
+The model was formulated as:
+
+```{=tex}
+$$\begin{aligned}
+& \text{MarathonTimeM}_i \sim N(\mu,\sigma_e)\\
+& \mu = \beta_0 + \beta_1*\text{km4week}_i + \beta_2*\text{sp4week}_i + e_i
+\end{aligned}$$
+```
+To get an overview of the different parameters for which a prior has to be defined, we can use the `get_prior( )` function and specify our model. This will result in an overview of the default priors set by the `brms` package.
+
+```{r}
+#| echo: true
+#| eval: true
+
+get_prior(
+  MarathonTimeM ~ 1 + km4week + sp4week, 
+  data = MarathonData
+)
+```
+
+In the following table we made a list of all the priors that were defaulted by `brms`.
+
+| Parameter(s) | Description                 | Prior                                        | Rationale                            |
+|--------------|-----------------------------|----------------------------------------------|--------------------------------------|
+| $\beta_{0}$  | Intercept                   | $\sim t(3,199.2,24.9)$                       | *provide a rationale for this prior* |
+| $\beta_{1}$  | Overall effect of `km4week` | Flat prior                                   | *provide a rationale for this prior* |
+| $\beta_{2}$  | Overall effect of `sp4week` | Flat prior                                   | *provide a rationale for this prior* |
+| $\sigma_e$   | Residual variance           | $\sim t(3,0,24.9)$ with lowerbound being $0$ | *provide a rationale for this prior* |
+
+: Table 1. Overview of the default priors used in the example model
+
+We could also define our own priors. The next table gives an overview of our own weakly informative priors, where we mainly defined custom priors for the effects of our two independent variables.
+
+In the following table we made a list of potential custom priors.
+
+| Parameter(s) | Description                 | Prior                                        | Rationale                                                                                                                                                                                                                                                                                                                                                                                            |
+|--------------|-----------------------------|----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| $\beta_{0}$  | Intercept                   | $\sim t(3,199.2,24.9)$                       | This prior implies that we concentrate our prior probabilities for the expected marathon time for a person scoring zero on both independent variables somewhere between 150 minutes (2,5 hours) and 250 minutes (4 hours and 10 minutes). If you know that the fastest marathon is just above 2 hours and that many runners run their marathon between 3 and 4,5 hours, this prior might make sense. |
+| $\beta_{1}$  | Overall effect of `km4week` | $\sim N(0,10)$                               | Here we use a normal distribution as our prior, with 0 as mean (we have no idea about the direction of the effect, so 0 gets most probability) and sd at 10.                                                                                                                                                                                                                                         |
+| $\beta_{2}$  | Overall effect of `sp4week` | $\sim N(0,10)$                               | Here we use a normal distribution as our prior, with 0 as mean (we have no idea about the direction of the effect, so 0 gets most probability) and sd at 10.                                                                                                                                                                                                                                         |
+| $\sigma_e$   | Residual variance           | $\sim t(3,0,24.9)$ with lowerbound being $0$ | *provide a rationale for this prior*                                                                                                                                                                                                                                                                                                                                                                 |
+
+: Table 2. Overview of the custom priors used in the example model
+
+### 1.1.3 Visualisation of the priors
+
+To make some of the priors more tangible we plot the prior distributions in this part. We can make use of different functions from `base` but we will also rely on the `metRology` package for visualizing the student t distributions. Flat priors (for the effect of both independent variables) don't need to be plotted, as they imply that all values get a similar probability.
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: false
+#| fig-cap: "Probability density plots for the different priors used in the example model"
+#| fig-cap-location: margin
+
+
+library(metRology)
+library(ggplot2)
+library(ggtext)
+library(patchwork)
+
+# Setting a plotting theme
+theme_set(theme_linedraw() +
+            theme(text = element_text(family = "Times", size = 8),
+                  panel.grid = element_blank(),
+                  plot.title = element_markdown())
+)
+
+# Generate the plot for the prior of the Intercept (mu)
+Prior_mu <- ggplot( ) +
+  stat_function(
+    fun = dt.scaled,    # We use the dt.scaled function of metRology
+    args = list(df = 3, mean = 199.2, sd = 24.9), # 
+    xlim = c(120,300)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the intercept",
+       subtitle = "student_t(3,199.2,24.9)")
+
+# Generate the plot for the prior of the error variance (sigma)
+Prior_sigma <- ggplot( ) +
+  stat_function(
+    fun = dt.scaled,    # We use the dt.scaled function of metRology
+    args = list(df = 3, mean = 0, sd = 24.9), # 
+    xlim = c(0,6)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the residual variance",
+       subtitle = "student_t(3,0,24.9)")
+
+# Generate the plot for the prior of the effects of independent variables
+Prior_betas <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0, sd = 10), # 
+    xlim = c(-20,20)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the effects of independent variables",
+       subtitle = "N(0,10)")
+
+Prior_mu + Prior_sigma + Prior_betas +
+  plot_layout(ncol = 2)
+```
+
+To use these priors for our model, we use the `set_prior( )` function in `bmrs`. We only have to define the priors that we want to change. The resulting object (`Custom_priors`) can be used in the model definition.
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+
+
+Custom_priors <- 
+  c(
+    set_prior(
+      "normal(0,10)", 
+      class = "b", 
+      coef = "km4week"),
+    set_prior(
+      "normal(0,10)", 
+      class = "b", 
+      coef = "sp4week")
+    )
+
+```
+
+### 1.1.4 Check the predictions based on the priors
+
+To check the predictions based on the priors (aka prior predictive checks) we "estimate the model" based on the priors only. This equals to generating the default number of chains and iterations of potential parameter values, given the prior probabilities defined and not taking into account the data. The results can be stored in an object.
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+
+Fit_Model_priors <- 
+  brm(
+    MarathonTimeM ~ 1 + km4week + sp4week, 
+    data = MarathonData,
+    prior = Custom_priors,
+    backend = "cmdstanr",
+    cores = 4,
+    sample_prior = "only"
+    )
+
+```
+
+Next, we can check the implications of these priors by using the `pp_check( )` function. This function simulates data based on `ndraws` number of draws of probable parameter values from our prior probability distribution. So, in the following code 300 new datasets are simulate, each based on another set of potential parameter values. Then this same function also plots the distribution of each of these 300 datasets (light blue lines) over-layed by the distribution of the real observed data (dark blue lines). We can see that some of the simulated datasets show very different distributions compared to the actual dataset.
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+
+set.seed(1975)
+pp_check(
+  Fit_Model_priors, 
+  ndraws = 300) +
+  scale_x_continuous(
+    limits = c(120,300)
+  )
+```
+
+We can also generate other types of plots to see whether our priors result in impossible data. For instance, we can compare some summary statistics based on our dataset to how the same summary statistics are distributed for all the simulated datasets. First let's apply this to the median of our data, by including the argument `type = "stat"` and then define the `stat = "median"`.
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "median")
+```
+
+As we can see in the above graph, some of the simulated datasets based on our priors result in a negative median marathon time, which is of course impossible! We could reconsider our priors here. If we think more carefully about our prior distribution for the effect of `km4week` we are still giving quiet some probability to strong negative effects (e.g., 10 minutes gain for each km run more in a week). So, if an athlete runs 20km more on average in a week that will result in a gain of 200 minutes! Same holds for the other side of the coin: we also give some probability of being 200 mintues slower if an athlete runs 20km more on average a week. Clearly our prior is too weakly defined here. Alternatively we could also argue that our model doesn't really make sense (is there really a linear effect of these variables?). Let's introduce a more restrictive prior for the beta of `km4week` (a normal distribution with a sd = 2) and do a similar check.
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+Custom_priors2 <- 
+  c(
+    set_prior(
+      "normal(0,2)", 
+      class = "b", 
+      coef = "km4week"),
+    set_prior(
+      "normal(0,10)", 
+      class = "b", 
+      coef = "sp4week")
+    )
+
+Fit_Model_priors2 <- 
+  brm(
+    MarathonTimeM ~ 1 + km4week + sp4week, 
+    data = MarathonData,
+    prior = Custom_priors2,
+    backend = "cmdstanr",
+    cores = 4,
+    sample_prior = "only"
+    )
+
+pp_check(Fit_Model_priors2, 
+         type = "stat", 
+         stat = "median")
+```
+
+This looks better! Now none of the simulated datasets is resulting in a negative median marathon time.
+
+# 2. After estimation before inspecting results
+
+## 2.1 Check convergence?
+
+Important in the Bayesian workflow is to control whether the MCMC algorithm converged well and that all parameters are estimated properly. Different complementary methods can be used to inspect proper convergence of the MCMC algorithm.
+
+::: callout-note
+In what follows we will work with the model estimated with the default `brms` priors. So we didn't re-run the model with our custom priors. Of course, in your project you should do this first and then do the later checks!
+:::
+
+### 2.1.1 Does the trace-plot exhibit convergence?
+
+Below we plot the different trace-plots (aka caterpillar plots) for the parameters estimated. As can be seen from these plots no strange patterns occur. All the chains mix well, meaning that we can conclude that the model converged.
+
+::: callout-note
+To create the caterpillar plots we made use of the `ggs( )` function from the package `ggmcmc`. Then we make use of the information on the `Parameter`column in the resulting object to create a plot making use of `ggplot2`.
+:::
+
+```{r}
+#| fig-cap: "Caterpillar plots for fixed part of the model"
+#| fig-cap-location: margin
+#| cache: true
+#| warning: false
+
+Model_chains <- ggs(MarathonTimes_Mod2)
+
+Model_chains %>%
+  filter(Parameter %in% c(
+          "b_Intercept", 
+          "b_km4week", 
+          "b_sp4week", 
+          "sigma"
+          )
+  ) %>%
+  ggplot(aes(
+    x   = Iteration,
+    y   = value, 
+    col = as.factor(Chain)))+
+  geom_line() +
+  facet_grid(Parameter ~ .,
+             scale  = 'free_y',
+             switch = 'y') +
+  labs(title = "Caterpillar Plots for the parameters",
+       col   = "Chains")
+```
+
+### 2.1.2 R-hat statistic
+
+Next we can have a look at both the $\widehat{R}$ values as well as the *Effective Sample Sizes* (ESS) for each parameter in the model. Following the rules of thumb in @vehtari2021 we consider that $\widehat{R}$ \<1.015 and ESS \> 400 to rely on the $\widehat{R}$ as indicators of convergence of the MCMC sampling. Printing the summary of our model gives us the necessary information:
+
+```{r}
+summary(MarathonTimes_Mod2)
+```
+
+All $\widehat{R}$ values are lower than 1.015 and given that the ESS are higher than 400 for all parameters, we can rely on the r-hat statistics. So we can conclude that the MCMC algorithm has converged properly.
+
+A more detailed plot of the $\widehat{R}$ values confirms this conclusion. Here we make use of the `mcmc_rhat()` function from the `bayesplot` package.
+
+```{r}
+#| message: false
+#| fig-cap: "R-hat plot for the parameters in the model"
+#| fig-cap-location: margin
+mcmc_rhat(
+  rhat(MarathonTimes_Mod2), 
+  size = 1) +
+  yaxis_text(hjust = 1) # to print parameter names
+```
+
+### 2.1.3 Checking auto-correlation
+
+The MCMC-algorithm introduces autocorrelation in the values it samples. Hence, not every sampled value is independent. The **ratio of the effective sample size to the total sample size** gives an idea of the amount of autocorrelation. This ratio should be higher than 0.1 (Gelman et al., 2013). This can be visualized making use of the `mcmc_neff( )` function from the package `bayesplot` and refer to the result of the function `neff_ratio( )`.
+
+```{r}
+#| message: false
+#| fig-cap: "Plot for the ratio's of effective sample size to the total sample size for each paramater"
+#| fig-cap-location: margin
+mcmc_neff(
+  neff_ratio(MarathonTimes_Mod2)
+  ) + 
+  yaxis_text(hjust = 1)
+```
+
+Another way to get insight into the degree of autocorrelation in the posterior distribution is by plotting it. The plots below show the **level of autocorrelation** for a time lag of 20. Positive values are indicative of a positive correlation between sampled values (and implies that the algorithm stayed in the same region for a while). Therefore, autocorrelation should become 0 as quickly as possible. The plots are generated making use of the `mcmc_acf( )` from `bayesplot`.
+
+```{r}
+#| message: false
+#| fig-cap: "Level of autocorrelation per chain for the intercept and beta's in the model"
+#| fig-cap-location: margin
+mcmc_acf(as.array(MarathonTimes_Mod2), regex = "b")
+```
+
+```{r}
+#| message: false
+#| fig-cap: "Level of autocorrelation per chain for the residual variance in the model"
+#| fig-cap-location: margin
+mcmc_acf(as.array(MarathonTimes_Mod2), regex = "sigma")
+```
+
+### 2.1.4 Rank plots
+
+**Rank plots** are an additional way to assess the convergence of MCMC. These plots show histograms of the ranked posterior draws per chain. If the algorithm converged, plots of all chains look similar (Vehtari et al., 2019).
+
+```{r}
+#| message: false
+#| cache: true
+#| fig-cap: "Rank plots for the intercept and beta's in the model"
+#| fig-cap-location: margin
+mcmc_rank_hist(MarathonTimes_Mod2, regex = "b") 
+```
+
+```{r}
+#| message: false
+#| fig-cap: "Rank plots for the residual variance in the model"
+#| fig-cap-location: margin
+mcmc_rank_hist(MarathonTimes_Mod2, regex = "sigma") 
+```
+
+## 2.2 Does the posterior distribution histogram have enough information?
+
+Here we make histograms based on the posterior probability distributions for each of the estimated parameters. What we want to see in those histograms is that there is a clear peak and sliding slopes. If the posterior distribution hasn't got enough information it is not wise to come to conclusions on the probability distribution. This could potentially be overcome with running more iterations.
+
+```{r}
+#| warning: false
+#| message: false
+#| fig-cap: "Posterior distribution histograms for the estimates in the final model"
+#| fig-cap-location: margin
+
+posterior_PD <- as_draws_df(MarathonTimes_Mod2)
+
+post_intercept <- 
+  posterior_PD %>%
+  select(b_Intercept) %>%
+  ggplot(aes(x = b_Intercept)) +
+  geom_histogram() +
+  ggtitle("Intercept") 
+
+post_km4week <- 
+  posterior_PD %>%
+  select(b_km4week) %>%
+  ggplot(aes(x = b_km4week)) +
+  geom_histogram() +
+  ggtitle("Beta km4week") 
+
+post_sp4week <- 
+  posterior_PD %>%
+  select(b_sp4week) %>%
+  ggplot(aes(x = b_sp4week)) +
+  geom_histogram() +
+  ggtitle("Beta sp4week") 
+
+post_intercept + post_km4week + post_sp4week +
+  plot_layout(ncol = 3)
+```
+
+## 2.3 Posterior Predictive Checks
+
+To see how well our model predicts the observed data, we can perform a *posterior predictive check.* This is done by using the `pp_check()` function from the package `brms` [@brms].
+
+```{r}
+#| fig-cap: "Posterior predictive check for the final model with 100 draws"
+#| fig-cap-location: margin
+pp_check(MarathonTimes_Mod2, 
+         ndraws = 100)
+
+```
+
+From this we can learn that our model predicts the data rather well.
+
+# 3. Understanding the exact influence of the priors
+
+## 3.1 Prior sensitivity analyses
+
+If we have a big dataset, our priors will be overruled by the data. But with smaller datasets a prior can have a significant influence on the results. In either situations, it is important to check how strongly the results are influenced by the priors we used in the model. Therefore, we rely on some functions in the `priorsense` package.
+
+To install the package we used the following:
+
+```{r}
+#| eval: false
+# install.packages("remotes")
+remotes::install_github("n-kall/priorsense")
+```
+
+A first quick check is done by using the `powerscale_sensitivity( )` function. This results in a tibble with some information on each of the parameters:
+
+-   the column `prior` gives a sensitivity index for the prior (so how sensitive is this parameter to changes in the prior)
+
+-   the colum `likelihood` gives a similar sensitivity index for the likelihood
+
+-   the column `diagnosis` gives a verbalization of the diagnosis if there is something to consider
+
+The sensitivity indices can be interpreted by making use of a critical value 0.05. If the sensitivity index is higher than 0.05 this means that the parameter is sensitive for changes in the prior and/or likelihood.
+
+In our example here the prior sensitivity indices are all lower than 0.05, indicating that none of the parameter estimates are sensitive to changes in the prior. This is what we are hoping for. At the other hand, we see that all parameters are sensitive to changes in the likelihood. That is actually also what you are hoping for, as this implies that our parameter estimates are mainly informed by the data (which translates in the likelihood part of Bayes' theorem).
+
+```{r}
+powerscale_sensitivity(MarathonTimes_Mod2)
+
+```
+
+There is also the possibility to visualize this making use of the following code:
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+
+powerscale_plot_dens(
+  powerscale_sequence(
+    MarathonTimes_Mod2
+    ),
+  variables = c(
+      "b_Intercept",
+      "b_km4week",
+      "b_sp4week"
+    )
+  )
+```
+
+The resulting graph shows different panels. The panels in the first row show information on the impact of changing the priors on the posterior probability distribution for each of the parameters (= prior sensitivity). Here we see that this shows a single line (all lines are plotted on top of each other), meaning that changing the prior has no impact on the posterior probability distributions for each of these parameters.
+
+The panels in the second row show the information for the likelihood sensitivity. Focussing on the graph for the effect of `km4week` we can see that changing the likelihood results in different posterior distributions: if the likelihood gets more weight (gets up-scaled by a positive factor, see more red lines) the posterior gets narrower and more peaked, and vice versa. The same holds for the other two parameters, but is hidden in the graph given the uninformative y-scales of the graphs at this point.
+
+Another interesting diagnostic visualization is coming from the `powerscale_plot_quantities( )` function. Here we apply it to the two slope parameters:
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+
+powerscale_plot_quantities(
+  powerscale_sequence(
+    MarathonTimes_Mod2
+    ),
+  variables = c(
+      "b_km4week",
+      "b_sp4week"
+      )
+  )
+```
+
+The first column shows how a summary statistic for the distance between the actual posterior probability distribution and the one simulated after giving the prior (or likelihood) more weight. The lines summarizing the effect of changing the likelihood show the typical V form: changing the likelihood makes the posterior distribution move away from the actual one based on our model, which indicates likelihood sensitivity. The line for the prior is flat.
+
+The second column shows how the mean of the posterior probability distribution is changed when giving the prior or likelihood more weight. Here we see that there is no impact on the mean.
+
+The last column shows how the standard deviation of the posterior probability distribution is changed when giving the prior or likelihood more weight. Here we see that this is strongly influenced by changing the likelihood. Giving the likelihood more weight results in a lower standard deviation for the posterior distribution. This makes perfect sense, more weight to the likelihood resembles having more data, which makes our estimates more precise and hence results in a smaller standard deviation for the posterior distribution.
+
+# References

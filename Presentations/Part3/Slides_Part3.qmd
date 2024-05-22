@@ -1,0 +1,884 @@
+---
+title: "Applied Bayesian Analyses in R"
+subtitle: "Part 3"
+author: "Sven De Maeyer"
+format: 
+  revealjs:
+    theme: [simple, My_theme.scss]
+    width: 1422
+    height: 805
+    slide-number: true
+editor: visual
+self-contained: true
+execute: 
+  echo: false
+  include: true
+  output: true
+code:
+  code-copy: true
+  code-line-numbers: true
+code-annotations: hover
+---
+
+```{r}
+library(here)
+library(tidyverse)
+library(brms)
+library(bayesplot)
+library(ggmcmc)
+library(patchwork)
+library(priorsense)
+
+load(
+  file = here(
+    "Presentations", 
+    "WritingData.RData")
+)
+
+M3 <-readRDS(file = 
+  here("Presentations",
+        "Part3",
+        "M3.RDS"
+       )
+  )
+
+# Setting a plotting theme
+theme_set(theme_linedraw() +
+            theme(
+              text = element_text(family = "Times", size = 14),
+              panel.grid = element_blank()
+              )
+)
+
+```
+
+## New example data `WritingData.RData`
+
+-   Experimental study on Writing instructions
+
+-   2 conditions:
+
+    -   Control condition (Business as usual)
+    -   Experimental condition (Observational learning)
+
+```{r, out.height = "50%", out.width="50%", echo = FALSE}
+knitr::include_graphics("WritingDataDesc.jpg")
+```
+
+## `r fontawesome::fa("laptop-code", "white")` Your Turn {background-color="#447099" transition="slide-in"}
+
+-   Open `WritingData.RData`
+
+-   Estimate 3 models with `SecondVersion` as dependent variable
+
+    -   M1: fixed effect of `FirstVersion_GM` + random effect of `Class` (`(1|Class)`)
+    -   M2: M1 + random effect of `FirstVersion_GM` (`(1 + FirstVersion_GM |Class)`)
+    -   M3: M2 + fixed effect of `Experimental_condition`
+
+-   Compare the models on their fit
+
+-   What do we learn?
+
+-   Make a summary of the best fitting model
+
+::: aside
+[Note:]{style="color: white"} `FirstVersion_GM`[is the score of the pretest centred around the mean, so a score 0 for this variable implies scoring on average for the pretest]{style="color: white"}
+:::
+
+## Divergent transitions...
+
+-   Something to worry about!
+
+-   Essentially: sampling of parameter estimate values went wrong
+
+-   Fixes:
+
+    -   sometimes fine-tuning the sampling algorithm (e.g., `control = list(adapt_delta = 0.9)`) works
+    -   sometimes you need more informative priors
+    -   sometimes the model is just not a good model
+
+## Our fix here for model 3
+
+```{r}
+#| eval: false
+#| echo: true
+
+M3 <- brm(
+  SecondVersion ~ FirstVersion_GM + Experimental_condition + (1 + FirstVersion_GM |Class),
+  data = WritingData,
+  backend = "cmdstanr",
+  cores = 4,
+  control = list(adapt_delta = 0.9),
+  seed = 1975 
+)
+```
+
+## Our fix here for model 3
+
+```{r, out.height = "50%", out.width="50%", echo = FALSE}
+knitr::include_graphics("M3_summary.jpg")
+```
+
+## Interpretation of results...
+
+Different ways to summarize our results:
+
+-   visually
+
+-   credible intervals (eti & hdi)
+
+-   rope + hdi rule
+
+-   hypothesis tests
+
+# Visually summarizing the posterior distribution
+
+## Functions in `bayesplot` package
+
+-   `mcmc_areas()` function
+
+-   `mcmc_areas_ridges()` function
+
+-   `mcmc_intervals()` function
+
+## The `mcmc_areas()` function
+
+Gives a posterior distribution including a certain credible interval that you can set manually with the `prob` argument:
+
+```{r}
+#| eval: true
+#| echo: true
+#| output-location: slide
+mcmc_areas(
+  M3,
+  pars = c(
+    "b_FirstVersion_GM",
+    "b_Experimental_condition"
+  ),
+  prob = .89
+)
+```
+
+## The `mcmc_areas_ridges()` function
+
+<br>
+
+Almost similar to the previous, only the horizontal spacing changes a bit...
+
+<br>
+
+Meanwhile, see how you can easily change the color scheme for `bayesplot` graphs
+
+<br>
+
+```{r}
+#| eval: true
+#| echo: true
+#| output-location: slide
+
+color_scheme_set(scheme = "red")
+
+mcmc_areas_ridges(
+  M3,
+  pars = c(
+    "b_FirstVersion_GM",
+    "b_Experimental_condition"
+  ),
+  prob = .89
+)
+```
+
+## The `mcmc_intervals()` function
+
+Summarizes the posterior as a horizontal bar with identifiers for two CI.
+
+Here we set one for a 50% and one for a 89% CI
+
+```{r}
+#| eval: true
+#| echo: true
+#| output-location: slide
+color_scheme_set(scheme = "gray")
+
+mcmc_intervals(
+  M3,
+  pars = c(
+    "b_FirstVersion_GM",
+    "b_Experimental_condition"
+  ),
+  prob = .5,
+  prob_outer = .89
+)
+```
+
+## Manually create visualizations
+
+<br>
+
+Powercombo: `as_draws_df()` + `ggplot2` + `ggdist`
+
+<br>
+
+What does `as_draws_df()` do?
+
+<br>
+
+```{r}
+#| eval: true
+#| echo: true
+#| output-location: slide
+posterior_PD <- as_draws_df(M3)
+head(posterior_PD)
+```
+
+## Use draws to create a plot using `ggdist` geoms
+
+::: columns
+::: {.column width="60%"}
+```{r, out.height = "98%", out.width="98%", echo = FALSE}
+knitr::include_graphics("ggdist_geoms.jpg")
+```
+:::
+
+::: {.column width="40%"}
+`ggdist` package has a set of functions to visualize a distribution
+:::
+:::
+
+## An example
+
+<br>
+
+Before we start, set our own plot theme (not so necessary)
+
+<br>
+
+```{r}
+#| echo: true
+
+# Setting a plotting theme
+theme_set(theme_linedraw() +
+            theme(
+              text = element_text(family = "Times", size = 14),
+              panel.grid = element_blank()
+              )
+)
+
+```
+
+## An example
+
+<br>
+
+We use `posterior_PD` as a starting point (our draws)
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| output-location: slide
+
+library(ggdist)
+
+Plot <- ggplot(
+  posterior_PD,
+  aes(x = b_Experimental_condition)
+  ) +
+  stat_halfeye()
+
+Plot + scale_y_continuous(name = "", breaks = NULL)
+```
+
+## Change the CI's
+
+<br>
+
+Change the CI's to 50% and 89%
+
+<br>
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| code-line-numbers: "6"
+#| output-location: slide
+Plot <- ggplot(
+  posterior_PD,
+  aes(x = b_Experimental_condition)
+  ) +
+  stat_halfeye(
+    .width = c(.50,.89)
+  )
+
+Plot + scale_y_continuous(name = "", breaks = NULL)
+```
+
+## Use another visualization
+
+<br>
+
+Let's make a dotplot... (research shows this is best interpreted) with 100 dots
+
+<br>
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| code-line-numbers: "5|6"
+#| output-location: slide
+Plot <- ggplot(
+  posterior_PD,
+  aes(x = b_Experimental_condition)
+  ) +
+  stat_dotsinterval(
+    quantiles = 100,
+    .width = c(.50,.89)
+  )
+
+Plot + scale_y_continuous(name = "", breaks = NULL)
+```
+
+## Plot two parameters each in a facet
+
+<br>
+
+We use `pivot_longer(everything())` to stack information on multiple parameters
+
+<br>
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| output-location: slide
+posterior_PD %>% 
+  select(
+    b_Experimental_condition, b_FirstVersion_GM
+  ) %>% 
+  pivot_longer(everything()) %>%
+  ggplot(
+    aes(x = value)
+  ) +
+  stat_halfeye(
+    .width = c(.50,.89)
+  ) +
+facet_wrap(name ~ .) +
+scale_y_continuous(name = "", breaks = NULL)
+
+```
+
+## Visualize calculated predictions based on posterior
+
+Our example: 2 groups according to `Experimental_condition`
+
+How to visualize the posterior probability of averages for both groups?
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| code-line-numbers: "6|7|10"
+#| output-location: slide
+posterior_PD %>% 
+  select(
+    b_Intercept, b_Experimental_condition
+  ) %>% 
+  mutate(
+    Mean_Control_condition = b_Intercept,
+    Mean_Experimental_condition = b_Intercept + b_Experimental_condition
+  ) %>% 
+  select(
+    Mean_Control_condition, Mean_Experimental_condition
+  ) %>% 
+  pivot_longer(everything()) %>%
+  ggplot(
+    aes(x = value, color = name, fill = name)
+  ) +
+  stat_halfeye(
+    .width = c(.50,.89),
+    alpha = .40
+  ) + 
+  scale_y_continuous(name = "", breaks = NULL)
+```
+
+## Hypothetical Outcome Plots (HOPs)
+
+Code: see separate script called `HOP_script.R`
+
+```{r}
+### CREATING HYPOTHETICAL OUTCOME PLOTS FOR BRMS MODEL ###
+
+# make sure your model is loaded in your R session
+# here we will apply it to the model M3
+
+## Step 1: sample n number of parameter values from the posterior
+
+# here we sample n = 20
+
+S <- as_draws_df(M3) %>% 
+  select(
+    # select the necessary parameters to calculate the predicted scores
+    b_Intercept, 
+    b_FirstVersion_GM,
+  ) %>%
+  slice_sample(
+    n = 20, # define the number of lines (draws) you want
+    replace = T
+  )
+
+## Step 2: Create a vector of possible scores for your X variable
+
+# here I make a vector of potential values for km4week_z (set a sensible range!)
+# our km4week_z is a z score so I choose numbers between -3 and 3
+X <- seq(-15, 15, by = .1)
+
+## Step 3: Create an empty tibble that will be filled with predictions
+
+Predictions <- tibble(
+  draw = NULL,
+  X = NULL,
+  Pred1 = NULL  
+)
+
+## Step 4: For each of our n (here 20) samples of parameter values calculate a prediction of Y
+
+for(i in 1:20){
+
+  Si <- S[i,]
+  
+  Pred1 <- Si$b_Intercept + Si$b_FirstVersion_GM*X
+  
+  draw <- rep(i,length(X))
+  
+  Pred <- tibble(
+    draw,
+    X,  
+    Pred1, 
+  )
+  
+  Predictions <- rbind(Predictions, Pred)
+}
+
+# Check the result of our predictions
+
+head(Predictions)
+
+## Step 5: Make a plot!
+
+P1 <- Predictions %>%
+  select(draw, X, Pred1) %>%
+  ggplot(aes(x = X,
+             y = Pred1,
+             group = draw)) +
+  geom_line(color = "gray60", alpha = .6) +
+  scale_y_continuous("predicted values") +
+  scale_x_continuous("first version (centred around the mean)")
+
+P1
+```
+
+# Visualizing Random Effects
+
+## Plotting the residuals
+
+To plot differences between classes we can use class-specific residuals:
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+head(as_draws_df(M3) %>% 
+  select(ends_with(",Intercept]")) %>%
+  select(1:3),
+  5
+)
+```
+
+## Plotting the residuals
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| output-location: slide
+as_draws_df(M3) %>% 
+  select(ends_with(",Intercept]")) %>%
+  pivot_longer(starts_with("r_Class")) %>% 
+  mutate(sigma_i = value) %>%
+  ggplot(aes(x = sigma_i, y = reorder(name, sigma_i))) +
+  stat_pointinterval(
+    point_interval = mean_qi, 
+    .width = .89, 
+    size = 1/6) +
+  scale_y_discrete(expression(italic(j)), breaks = NULL) +
+  labs(x = expression(italic(u)[italic(j)])) +
+  coord_flip()
+```
+
+## ICC estimation
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+head(
+  as_draws_df(M3) %>%
+    mutate(
+      ICC = (sd_Class__Intercept^2/(sd_Class__Intercept^2 + sigma^2))) %>%
+    select(sigma, sd_Class__Intercept, ICC), 
+  5
+  ) 
+```
+
+## ICC estimation
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| output-location: slide
+
+as_draws_df(M3) %>%
+  mutate(
+    ICC = (sd_Class__Intercept^2/(sd_Class__Intercept^2 + sigma^2))
+    ) %>%
+  select(ICC) %>%                           
+  ggplot(aes(x = ICC)) +                    
+   stat_dotsinterval(
+     quantiles = 100,
+     .width = c(.50,.89)
+   ) +
+   scale_x_continuous("marginal posterior", 
+                      breaks = seq(.00,.60,by =.05)) + 
+   scale_y_continuous("ICC", breaks = NULL)
+```
+
+## HOP per higher level unit
+
+Code: see separate script called `HOP_MixedEffects_script.R`
+
+```{r}
+
+
+### CREATING HYPOTHETICAL OUTCOME PLOTS FOR BRMS MODEL ###
+
+# make sure your model is loaded in your R session
+# here we will apply it to the model M3
+
+## Step 1: sample n number of parameter values from the posterior
+
+# here we sample n = 20
+library(posterior)
+S <- as_draws_df(M3) %>% 
+  select(
+    # select the necessary parameters to calculate the predicted scores
+    b_Intercept, 
+    b_FirstVersion_GM,
+    ends_with(",Intercept]"),       # select class specific intercept residuals
+    ends_with(",FirstVersion_GM]")  # select class specific slope residuals
+  ) %>%
+  slice_sample(
+    n = 20, # define the number of lines (draws) you want per class
+    replace = T
+  ) %>%
+  mutate(
+    draw = seq(1:20)
+  )
+
+## Create long dataframe
+
+S_Long <- S %>%
+
+    ## Pivot longer
+
+    pivot_longer(
+    cols = c(
+      ends_with(",Intercept]"),       # select class specific intercept residuals
+      ends_with(",FirstVersion_GM]")  # select class specific slope residuals
+    ),
+    names_sep = ",",
+    names_to = c("Class", "Parameter"),
+    values_to = "residual"
+  ) %>%
+  
+  ## remove parts of text variables to get good identifiers for Class and Parameter
+
+  mutate(
+    Class = str_remove(
+      Class,
+      pattern = ".*\\["
+      ),
+    Parameter = str_remove(
+      Parameter,
+      pattern = "\\]"
+      )
+  ) %>% 
+  
+  ## Pivot wider again to have column for each random parameter
+  
+  pivot_wider(
+    names_from = Parameter,
+    values_from = residual
+  )
+  
+
+  
+## Step 2: Create a vector of possible scores for your X variable
+
+# here I make a vector of potential values for km4week_z (set a sensible range!)
+# our km4week_z is a z score so I choose numbers between -3 and 3
+X <- seq(-15, 15, by = .1)
+
+## Step 3: Create an empty tibble that will be filled with predictions
+
+Predictions <- tibble(
+  draw = NULL,
+  X = NULL,
+  Pred1 = NULL,
+  Class = NULL
+)
+
+## Step 4: For each of our n (here 20) samples of parameter values calculate a prediction of Y
+
+for(i in 1:400){
+
+  Si <- S_Long[i,]
+  
+  # Calculate a predicted score based on the fixed and random estimates of that draw
+  
+  Pred1 <- Si$b_Intercept + Si$Intercept + (Si$b_FirstVersion_GM + Si$FirstVersion_GM )*X  
+  
+  draw <- Si$draw
+  
+  Class <- as.factor(Si$Class)
+  
+  Pred <- tibble(
+    draw,
+    X,  
+    Pred1, 
+    Class
+  )
+  
+  Predictions <- rbind(Predictions, Pred)
+}
+
+
+## Step 5: Make a plot!
+
+P1 <- Predictions %>%
+  select(draw, X, Pred1, Class) %>%
+  ggplot(aes(x = X,
+             y = Pred1,
+             group = draw)) +
+  geom_line(color = "gray60", alpha = .6) +
+  facet_wrap(~Class, labeller = label_both) +
+  scale_y_continuous("predicted values") +
+  scale_x_continuous("first version (centred around the mean)")
+
+P1
+
+
+```
+
+# Reporting stats about the posterior
+
+## Credible Intervals
+
+::: columns
+::: {.column width="60%"}
+```{r}
+# Generate a gamma distribution (that is skew)
+library(bayestestR)
+set.seed(1975)
+posterior <- distribution_gamma(1000, 2.5, 2)
+
+# Compute HDI and Quantile CI
+ci_hdi <- ci(posterior, method = "HDI")
+ci_eti <- ci(posterior, method = "ETI")
+
+# Plot the distribution and add the limits of the two CIs
+posterior %>% 
+  estimate_density(extend = TRUE) %>% 
+  ggplot(aes(x = x, y = y)) +
+  geom_area(fill = "#E6AB02") +
+
+  # HDI in green
+  geom_vline(xintercept = ci_hdi$CI_low, color = "#66A61E", size = 2) +
+  geom_vline(xintercept = ci_hdi$CI_high, color = "#66A61E", size = 2) +
+  # ETI in purple
+  geom_vline(xintercept = ci_eti$CI_low, color = "#7570B3", size = 2) +
+  geom_vline(xintercept = ci_eti$CI_high, color = "#7570B3", size = 2) +
+  scale_y_continuous("posterior probability density") +
+  scale_x_continuous("possible parameter values") +
+  ggtitle("Skew posterior with a 89% HDI (green lines) and a 89% ETI (purple lines)")
+```
+:::
+
+::: {.column width="40%"}
+<br>
+
+-   ETI: Equal Tailed Interval
+
+<br>
+
+-   HDI: Highest Density Interval
+:::
+:::
+
+## Concept of ROPE
+
+::: columns
+::: {.column width="40%"}
+```{r, out.height = "99%", out.width="99%", echo = FALSE}
+knitr::include_graphics("Kruchke_2018.jpg")
+```
+:::
+
+::: {.column width="60%"}
+<b>ROPE</b>: Region Of Practical Equivalence
+
+<i> [Set a region of parameter values that can be considered equivalent to having no effect]{style="background-color: yellow"} </i>
+
+-   in standard effect sizes the advised default is a range of -0.1 to 0.1
+
+-   this equals [1/2 of a small effect size]{style="color: red"} (Cohen, 1988)
+
+-   all parameter values in that range are set equal to [no effect]{style="color: red"}
+:::
+:::
+
+## ROPE + HDI
+
+::: columns
+::: {.column width="40%"}
+```{r, out.height = "99%", out.width="99%", echo = FALSE}
+knitr::include_graphics("Kruchke_2018.jpg")
+```
+:::
+
+::: {.column width="60%"}
+<b>ROPE + HDI rule</b>
+
+<br>
+
+-   95% of HDI out of ROPE $\rightarrow$ $H_0$ rejected
+
+-   95% of HDI all in ROPE $\rightarrow$ $H_0$ not rejected
+
+-   95% of HDI partially out of ROPE $\rightarrow$ undecided
+:::
+:::
+
+## Applying the HDI + ROPE rule with `bayestestR` package
+
+<br>
+
+We can use the `equivalence_test()` function of the `bayestestR` package
+
+<br>
+
+```{r}
+#| echo: true
+library(bayestestR)
+equivalence_test(M3)
+```
+
+## Visualizing the HDI + ROPE rule
+
+<br>
+
+We visualize the `equivalence_test()` by adding `plot( )`
+
+<br>
+
+```{r}
+#| echo: true
+#| output-location: column
+equivalence_test(M3) %>%
+  plot()
+
+```
+
+## Probability of Direction (PD) with `parameters` package
+
+```{r}
+#| echo: true
+library(parameters)
+model_parameters(
+  M3,
+  ci_method = "hdi",
+  rope_range = c(-1.8,1.8), #sd MarathonTimeM = 17.76 so 17.76*0.1 
+  test = c("rope", "pd")
+  )
+```
+
+# Outro
+
+## Some books `r fontawesome::fa("book")`
+
+```{r, out.height = "90%", out.width="90%", echo = FALSE}
+knitr::include_graphics("cover_Lambert.jpg")
+```
+
+## Some books `r fontawesome::fa("book")`
+
+```{r, out.height = "90%", out.width="90%", echo = FALSE}
+knitr::include_graphics("cover_rethinking2.jpg")
+```
+
+## Some free online books `r fontawesome::fa("book")`
+
+-   Bayes Rules!:
+
+<https://www.bayesrulesbook.com/>
+
+-   Or this book:
+
+<https://vasishth.github.io/bayescogsci/book/>
+
+## Rens van de Schoot `r fontawesome::fa("book")`
+
+In <i>Nature Reviews</i>
+
+```{r, out.height = "90%", out.width="90%", echo = FALSE}
+knitr::include_graphics("Rens_NatureReviews.jpg")
+```
+
+## THE Podcast `r fontawesome::fa("podcast")`
+
+If you like running - like I do - this could be a great companion on your run!
+
+<https://www.learnbayesstats.com/>
+
+## Site on creating the graphs `r fontawesome::fa("newspaper")`
+
+There are many blogs and websites that you can consult if you want to find out more about making graphs. <br>
+
+One that I often fall back to is:
+
+<br>
+
+<http://mjskay.github.io/tidybayes/>
+
+## Questions?
+
+<br>
+
+Do not hesitate to contact me!
+
+<br>
+
+[sven.demaeyer\@uantwerpen.be](mailto:sven.demaeyer@uantwerpen.be){.email}
+
+# `r fontawesome::fa("thumbs-up", "white")` THANK YOU! {background-color="#447099" transition="slide-in"}

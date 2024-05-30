@@ -616,7 +616,7 @@ Custom_priors <-
 
 <br>
 
-Did you set sensible priors?
+Did you set sensible priors? How informative are the priors (taken together)?
 
 <br>
 
@@ -683,7 +683,7 @@ Step 2: visualize the data with the `pp_check( )` function
 
 ```{r}
 #| echo: true
-#| output-location: slide
+#| eval: false
 
 set.seed(1975)
 
@@ -692,6 +692,25 @@ pp_check(
   ndraws = 300) # number of simulated datasets you wish for
 
 ```
+
+## In `brms`
+
+300 distributions of simulated datasets (marathon times) overlayed by our observed data (to have an anchoring point)
+
+```{r}
+#| echo: false
+
+set.seed(1975)
+
+pp_check(
+  Fit_Model_priors, 
+  ndraws = 300) # number of simulated datasets you wish for
+
+```
+
+:::aside
+*Notice how we get even datasets that contain a proportion of marathon times faster than 0 minutes!!*
+:::
 
 ## Check some summary statistics
 
@@ -703,12 +722,71 @@ pp_check(
 
 ```{r}
 #| echo: true
-#| output-location: slide
+#| eval: false
+
 pp_check(Fit_Model_priors, 
          type = "stat", 
          stat = "median")
 ```
 
+## Check some summary statistics
+
+300 medians of simulated datasets (marathon times) overlayed by the median of our observed data (to have an anchoring point)
+
+```{r}
+#| echo: false
+#| eval: true
+
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "median")
+```
+
+:::aside
+*Notice that some simulated datasets would imply a very low median marathon time (e.g., lower than 100 minutes)*
+:::
+
+## Check some summary statistics
+
+-   Let's check the minima of all simulated datasets based on our priors
+
+```{r}
+#| echo: true
+#| eval: false
+
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "min")
+```
+
+## Check some summary statistics
+
+300 fastest marathon times (in the simulated datasets) overlayed by the fastest observed time in our data (to have an anchoring point)
+
+```{r}
+#| echo: false
+#| eval: true
+
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "min")
+```
+
+:::aside
+*Notice that the majority of simulated datasets would imply a faster and even impossible fastest marathon time (e.g., lower than 0 minutes)*
+:::
+
+## Possible conclusion
+
+*Put priors in the context of the likelihood*
+
+The priors 
+
+- N(0,10) for the betas
+- t(3,199.2,24.9) for the intercept
+- t(3,0,24.9) for the error variance
+
+Are non-informative!! They will not predict our data perfectly. 
 
 # Prior sensitivity analyses
 

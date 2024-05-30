@@ -161,7 +161,6 @@ mcmc_areas(
 ) + theme_minimal()
 ```
 
-
 ## Advantages & Disadvantages of Bayesian analyses
 
 ::: columns
@@ -877,4 +876,3 @@ ModX <- brm(
 ```
 
 # `r fontawesome::fa("laptop-code", "white")` Homework {background-color="#447099" transition="slide-in"}
-

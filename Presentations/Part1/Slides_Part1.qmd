@@ -52,17 +52,19 @@ Let's get to know each other first!
 
 Part 1: Introduction to Bayesian inferences and some basics in `brms`
 
-Part 2: Checking the model with the WAMBS and how to do it in `R`
+Part 2: Think and set priors in a simple model
 
-Part 3: Reporting and interpreting Bayesian models
+Part 3: Comparing models and into Bayesian Mixed Effects Modesl
 
-Part 4: Analysing your own data or integrated excercise
+Part 4: Reporting and interpreting Bayesian models
+
+Integrated exercise: Analysing your own data or integrated exercise when you want as homework
 
 ## Practical stuff
 
 All material is on the on-line dashboard:
 
-XXX
+https://abar-turku2024.netlify.app/#quick-overview
 
 You can find:
 
@@ -310,6 +312,66 @@ Two potential priors for the *mean marathon time* in the population
 ## Bayesian theorem in stats
 
 <br> <br> *"For Bayesians, the data are treated as fixed and the parameters vary. \[...\] Bayes' rule tells us that to calculate the posterior probability distribution we must combine a likelihood with a prior probability distribution over parameter values."* <br> (Lambert, 2018, p.88)
+
+
+## Distributions, distributions and distributions
+
+Important: 2 types/contexts
+
+::: columns
+::: {.column width="50%"}
+
+[Distribution of **values**]{style="background-color: yellow; color: red"} of a variable (e.g., how are observed marathon times )
+
+```{r}
+Marathon_times <- seq(120, 300, by = 0.1)
+
+Freq <- dnorm(
+  Marathon_times, 
+  225,
+  40
+  )
+
+data.frame(Marathon_times, Freq) %>%
+  ggplot(aes(x = Marathon_times, y = Freq)) + 
+    geom_line() +
+    labs(
+      x = "Observed Marathon Times",
+      y = ""
+    ) +
+  theme_linedraw()
+```
+
+
+:::
+
+::: {.column width="50%"}
+
+[Distribution of **probabilities**]{style="background-color: yellow; color: red"} of a parameter (prior or posterior)
+
+```{r}
+Intercept <- seq(120, 300, by = 0.1)
+
+Probability <- dnorm(
+  Marathon_times, 
+  225,
+  30
+  )
+
+data.frame(Intercept, Probability) %>%  
+  ggplot(aes(x = Intercept, y = Probability)) + 
+    geom_line() +
+    labs(
+      x = "Parameter Intercept",
+      y = "density"
+    ) +
+  theme_linedraw()
+```
+
+:::
+:::
+
+This can be confusing, so each time, slow down and think!
 
 ## Let's apply this idea
 

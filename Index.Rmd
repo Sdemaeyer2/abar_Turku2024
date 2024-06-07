@@ -26,7 +26,7 @@ Instructors:
  
 ---
 
-All materials for the course can be downloaded via <a href="https://github.com/Sdemaeyer2/BSTAT_Edubron24" target="_blank">the github page </a>. 
+All materials for the course can be downloaded via <a href="https://github.com/Sdemaeyer2/abar_Turku2024" target="_blank">the github page </a>. 
 
 ---
 

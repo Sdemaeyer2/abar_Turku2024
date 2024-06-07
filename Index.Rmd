@@ -278,10 +278,29 @@ The htlm-version of the slides for this part can be found <a href="Presentations
 
 For this part, we again use the straightforward dataset on predicting racetimes for a marathon. The data can be downloaded <a href="Data/MarathonData.RData" target="blank"> here </a> (right-click to save as). 
 
-
-
-
 # Part 3
+
+## Column 1
+
+### Outline
+
+In this part of the workshop we go one step further. We will first shortly introduce the idea of *leave-one-out cross-validation* which can be used to compare alternative models. Next we will estimate some *Bayesian Mixed Effects Models* and delve into the endeavour to think about the different priors. We will consider alternative priors for both the fixed and random effect parameters in the model. Using prior predictive checking we will consider the impact of these priors. Finally, we will also introduce the concept of *posterior predictive checking* to evaluate our model. 
+
+#### Slides
+
+The htlm-version of the slides for this first part can be found <a href="Presentations/Part3/Slides_Part3.html" target="blank">here</a>
+
+#### Data
+
+For this first part, we used a dataset on the effect of a writing intervention. The data can be downloaded <a href="Data/WritingData.RData" target="blank"> here </a> (right-click to save as). 
+
+
+## Column 2
+
+### References and resources
+
+
+# Part 4
 
 ## Column 1
 
@@ -291,7 +310,7 @@ This part of the workshop is about interpreting and reporting the results of our
 
 #### Slides
 
-The htlm-version of the slides for this first part can be found <a href="Presentations/Part3/Slides_Part3.html" target="blank">here</a>
+The htlm-version of the slides for this first part can be found <a href="Presentations/Part4/Slides_Part4.html" target="blank">here</a>
 
 #### Data
 
@@ -320,7 +339,7 @@ Papers on the use of quantile dotplots:
 - <a href="https://www.mjskay.com/papers/chi2018-uncertain-bus-decisions.pdf" target="blank"> https://www.mjskay.com/papers/chi2018-uncertain-bus-decisions.pdf </a>
 
 
-# Part 4
+# Integrated exercise
 
 ## Column 1
 
@@ -348,7 +367,7 @@ Frumuselu, Anca Daniela, Sven De Maeyer, Vincent Donche, and María del Mar Guti
 
 ### Info
 
-During the course we introduced the WAMBS (when to Worry and how to Avoid the Misuse of Bayesian Statistics) check-list as a tool to structure your thinking and checking of your Bayesian model(s). 
+During the course we shorlty introduced the WAMBS (when to Worry and how to Avoid the Misuse of Bayesian Statistics) check-list as a tool to structure your thinking and checking of your Bayesian model(s). 
 
 To see an example of this WAMBS checklist applied to the final model on the Marathon Data click <a href="WAMBS_template/WAMBS_workflow_MarathonData.html" target="blank">here</a>.
 

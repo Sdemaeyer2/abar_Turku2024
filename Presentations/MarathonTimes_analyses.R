@@ -35,14 +35,14 @@ Mod_MT1 <- brm(
   seed = 1975                          
 )
 
-### 1.1.2 Two alternative models on actual dataset (first excercise)
+### 1.1.2 Two alternative models on actual dataset (first exercise)
 
 # run the models
 
 MarathonTimes_Mod1 <- brm(                        
   MarathonTimeM ~ 1, # We only model an intercept 
   data = MarathonData,                         
-  #backend = "cmdstanr",  
+  backend = "cmdstanr",  
   cores = 4,
   seed = 1975                          
 )
@@ -55,11 +55,15 @@ MarathonTimes_Mod2 <- brm(
   seed = 1975                          
 )
 
-posterior_PD <- as_draws_df(MarathonTimes_Mod1)
-
 summary(MarathonTimes_Mod2)
 
+plot(MarathonTimes_Mod2)
+
+###
+
 pp_check(MarathonTimes_Mod2) 
+
+posterior_PD <- as_draws_df(MarathonTimes_Mod1)
 
 # save the models
 
@@ -88,7 +92,7 @@ Comparison<-
     loo_Mod2
   )
 
-print(Comparison, simplify = F)
+print(Comparison)
 
 # posterior predictive checks
 

@@ -1,0 +1,142 @@
+---
+title: "To_be_deleted_afterwards"
+format: pdf
+---
+
+Random Intercepts
+
+Model 1 Freq
+
+$$\begin{aligned}
+& \text{SecondVersion}_{ij} = \beta_{0} + \beta_1*\text{FirstVersion}_i + \eta_{0j} + \epsilon_{ij}\\
+& \ \text{with}\\
+& \eta_{0j} \sim \text{Normal}(0,\sigma_{\eta_0}) \\
+& \ \epsilon_{ij} \sim \text{Normal}(0,\sigma_{\epsilon})
+\end{aligned}$$
+
+Model 1 Bayes
+
+$$\begin{aligned}
+& \text{SecondVersion}_i \sim \text{Normal}(\mu_i,\sigma_{\epsilon})\\
+& \mu_i = \beta_{0j[i]} + \beta_1*\text{FirstVersion}_i \\
+& \beta_{0j} \sim \text{Normal}(\beta_{0},\sigma_{\beta_0})
+\end{aligned}$$
+
+Random Slopes
+
+Model 2 Freq
+
+$$\begin{aligned}
+& \text{SecondVersion}_{ij} = \beta_{0} + \beta_1*\text{FirstVersion}_i + \eta_{0j} + \eta_{1j}*\text{FirstVersion}_i + \epsilon_{ij}\\
+& \ \text{with}\\
+& \eta_{0j} \sim \text{Normal}(0,\sigma_{\eta_0}) \\
+& \eta_{1j} \sim \text{Normal}(0,\sigma_{\eta_1}) \\
+& \ \epsilon_{ij} \sim \text{Normal}(0,\sigma_{\epsilon})
+\end{aligned}$$
+
+Model 2 Bayes (1)
+
+$$\begin{aligned}
+& \text{SecondVersion}_i \sim \text{Normal}(\mu_i,\sigma_{\epsilon})\\
+& \mu_i = \beta_{0j[i]} + \beta_{1j[i]}*\text{FirstVersion}_i \\
+& \beta_{0j} \sim \text{Normal}(\beta_{0},\sigma_{\beta_0}) \\
+& \beta_{1j} \sim \text{Normal}(\beta_{1},\sigma_{\beta_1}) 
+\end{aligned}$$
+
+Model 2 Bayes (2)
+
+$$\begin{aligned}
+& \text{SecondVersion}_i \sim \text{Normal}(\mu_i,\sigma_{\epsilon})\\
+& \mu_i = \beta_0 + \beta_{0j[i]} + (\beta_1 + \beta_{1j[i]})*\text{FirstVersion}_i \\
+& \beta_{0j} \sim \text{Normal}(0,\sigma_{\beta_0}) \\
+& \beta_{1j} \sim \text{Normal}(0,\sigma_{\beta_1}) 
+\end{aligned}$$
+
+Model 3 Bayes
+
+$$\begin{aligned}
+& \text{SecondVersion}_i \sim \text{Normal}(\mu_i,\sigma_{\epsilon})\\
+& \mu_i = \beta_0 + \beta_{0j[i]} + (\beta_1 + \beta_{1j[i]})*\text{FirstVersion}_i + \beta_2*\text{ExperimentalCondition}_i \\
+& \beta_{0j} \sim \text{Normal}(0,\sigma_{\beta_0}) \\
+& \beta_{1j} \sim \text{Normal}(0,\sigma_{\beta_1}) 
+\end{aligned}$$
+
+Full specification Model 3
+
+$$\begin{aligned}
+& \text{SecondVersion}_i \sim \text{Normal}(\mu_i,\sigma_{\epsilon})\\
+& \mu_i = \beta_{0} + \beta_{0j[i]} + (\beta_{1} + \beta_{1j[i]})*\text{FirstVersion}_i + \beta_{2}*\text{ExperimentalCondition}_i \\
+& \begin{bmatrix}
+     \beta_{0j}\\
+     \beta_{1j}
+   \end{bmatrix}
+      \sim \textbf{MVNormal} \left(
+   \begin{bmatrix}
+     0 \\
+     0
+   \end{bmatrix} ,
+    \textbf{S} \right) \\\\
+& \textbf{S} = 
+    \begin{bmatrix}
+         \sigma^2_{\beta_{0}} & \sigma_{\beta_{1}\beta_{0}}\\
+         \sigma_{\beta_{0}\beta_{1}} & \sigma^2_{\beta_{1}}
+    \end{bmatrix}\\
+\end{aligned}$$
+
+Full specification M3 with priors
+
+$$\begin{aligned}
+& \text{SecondVersion}_i \sim \text{Normal}(\mu_i,\sigma_{\epsilon})\\
+& \mu_i = \beta_{0} + \beta_{0j[i]} + (\beta_{1} + \beta_{1j[i]})*\text{FirstVersion}_i + \beta_{2}*\text{ExperimentalCondition}_i \\
+& \begin{bmatrix}
+     \beta_{0j}\\
+     \beta_{1j}
+   \end{bmatrix}
+      \sim \textbf{MVNormal} \left(
+   \begin{bmatrix}
+     0 \\
+     0
+   \end{bmatrix} ,
+    \textbf{S} \right) \\\\
+& \textbf{S} = 
+    \begin{bmatrix}
+         \sigma^2_{\beta_{0}} & \sigma_{\beta_{1}\beta_{0}}\\
+         \sigma_{\beta_{0}\beta_{1}} & \sigma^2_{\beta_{1}}
+    \end{bmatrix}\\
+& \beta_{0} \sim \text{StudentT}(3,110.4,13.3) \\
+& \beta_{1} \sim \text{flat} \\
+& \beta_{2} \sim \text{flat} \\
+& \sigma_{\epsilon} \sim \text{HalfStudentT}(3,0,13.3) \\
+& \sigma_{\beta_0} \sim \text{HalfStudentT}(3,0,13.3) \\
+& \sigma_{\beta_1} \sim \text{HalfStudentT}(3,0,13.3) \\
+& \textbf{R} \sim \textbf{LKJcorr}(1)
+\end{aligned}$$
+
+Full specification M3 with CUSTOM priors
+
+$$\begin{aligned}
+& \text{SecondVersion}_i \sim \text{Normal}(\mu_i,\sigma_{\epsilon})\\
+& \mu_i = \beta_{0} + \beta_{0j[i]} + (\beta_{1} + \beta_{1j[i]})*\text{FirstVersion}_i + \beta_{2}*\text{ExperimentalCondition}_i \\
+& \begin{bmatrix}
+     \beta_{0j}\\
+     \beta_{1j}
+   \end{bmatrix}
+      \sim \textbf{MVNormal} \left(
+   \begin{bmatrix}
+     0 \\
+     0
+   \end{bmatrix} ,
+    \textbf{S} \right) \\\\
+& \textbf{S} = 
+    \begin{bmatrix}
+         \sigma^2_{\beta_{0}} & \sigma_{\beta_{1}\beta_{0}}\\
+         \sigma_{\beta_{0}\beta_{1}} & \sigma^2_{\beta_{1}}
+    \end{bmatrix}\\
+& \beta_{0} \sim \text{StudentT}(3,110.4,13.3) \\
+& \beta_{1} \sim \text{Normal}(1,5) \\
+& \beta_{2} \sim \text{Normal}(3.4,17) \\
+& \sigma_{\epsilon} \sim \text{HalfStudentT}(3,0,13.3) \\
+& \sigma_{\beta_0} \sim \text{HalfStudentT}(3,0,13.3) \\
+& \sigma_{\beta_1} \sim \text{HalfStudentT}(3,0,5) \\
+& \textbf{R} \sim \textbf{LKJcorr}(1)
+\end{aligned}$$

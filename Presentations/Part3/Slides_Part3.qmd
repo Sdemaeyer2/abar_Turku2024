@@ -800,15 +800,14 @@ pp_check(
 
 *Put priors in the context of the likelihood*
 
-The priors 
+<br>
+
+
+The priors are non-informative!! 
 
 <br>
 
-...
-
-<br>
-
-are non-informative!! They will not predict our data perfectly. 
+They do not predict our data perfectly. 
 
 # Prior sensitivity analyses
 
@@ -865,6 +864,8 @@ powerscale_sensitivity(M3_custom)
 #| echo: true
 #| warning: false
 #| message: false
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| cache: true
 #| output-location: slide
 
@@ -876,6 +877,28 @@ powerscale_plot_dens(
       "b_Intercept",
       "b_FirstVersion_GM",
       "b_Experimental_condition"
+    )
+  )
+```
+
+## Visualization of prior sensitivity
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| fig-width: 13.5
+#| fig-height: 7.5
+#| cache: true
+#| output-location: slide
+
+powerscale_plot_dens(
+  powerscale_sequence(
+    M3_custom
+    ),
+  variables = c(
+      "sd_Class__Intercept",
+      "sd_Class__FirstVersion_GM"
     )
   )
 ```

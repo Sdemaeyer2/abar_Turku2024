@@ -16,22 +16,6 @@ load(
   file = here("Presentations", "WritingData.RData")
 )
 
-## 0.3 Recode Condition variable ----
-
-WritingData <- WritingData %>%
-  mutate(
-    Experimental_condition = 
-    case_when(
-      Condition == 1 ~ 1,
-      Condition == 2 ~ 0 
-    )
-  )
-
-save(
-  WritingData,
-  file = here("Presentations", "WritingData.RData")
-)
-
 # 1. Estimate three models ----
 
 # 1.1. Only effect of FirstVersion_GM - no random slopes
@@ -83,14 +67,6 @@ looComp <- loo_compare(loo_M1,
 print(looComp,
       simplify = F)
 
-M3 <- brm(
-  SecondVersion ~ FirstVersion_GM + Experimental_condition + (1 + FirstVersion_GM |Class),
-  data = WritingData,
-  backend = "cmdstanr",
-  cores = 4,
-#  control = list(adapt_delta = 0.9),
-  seed = 1975 
-)
 
 saveRDS(
   M3,
@@ -193,3 +169,32 @@ pp_check(
   group = "Class",
   ndraws = 100) +
   scale_x_continuous(limits = c(0,200))
+
+
+priors <- get_prior(
+  SecondVersion ~ FirstVersion_GM + Experimental_condition + (1 + FirstVersion_GM |Class),
+  data = WritingData)
+
+## ggdist approach to plot priors!
+
+library(ggdist)
+
+# https://mjskay.github.io/ggdist/articles/slabinterval.html#visualizing-priors
+
+p <- priors %>%
+  parse_dist(prior)
+
+
+priors %>%
+  parse_dist(prior) %>%
+  filter(
+    class == "Intercept"
+  ) %>%
+  ggplot(aes(y = paste(class, "~", format(.dist_obj)), xdist = .dist_obj)) +
+  stat_halfeye(subguide = subguide_inside(position = "right", title = "density")) +
+  labs(
+    title = "stat_halfeye()",
+    subtitle = "with parse_dist() and brms::prior() to show priors",
+    x = NULL,
+    y = NULL
+  )

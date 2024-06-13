@@ -8,7 +8,6 @@ format:
     width: 1422
     height: 805
     slide-number: true
-editor: visual
 self-contained: true
 execute: 
   echo: false
@@ -35,10 +34,10 @@ load(
     "WritingData.RData")
 )
 
-M3 <-readRDS(file = 
+M3_custom <-readRDS(file = 
   here("Presentations",
         "Part3",
-        "M3.RDS"
+        "M3_custom.RDS"
        )
   )
 
@@ -52,7 +51,27 @@ theme_set(theme_linedraw() +
 
 ```
 
-## New example data `WritingData.RData`
+## What did we do untill now?
+
+- Introduced the basics of Bayesian inference
+
+- Estimate models in `brms` with default priors
+
+- How to wrap our head around the priors?
+
+- Prior predictive checking
+
+## What we will cover today
+
+What if you have a model?
+
+- Prior Sensitivity Analyses
+
+- Posterior predictive checking
+
+- Reporting the results (summarizing the posterior)
+
+## Where we stopped: `WritingData.RData`
 
 -   Experimental study on Writing instructions
 
@@ -65,61 +84,210 @@ theme_set(theme_linedraw() +
 knitr::include_graphics("WritingDataDesc.jpg")
 ```
 
-## `r fontawesome::fa("laptop-code", "white")` Your Turn {background-color="#447099" transition="slide-in"}
 
--   Open `WritingData.RData`
-
--   Estimate 3 models with `SecondVersion` as dependent variable
-
-    -   M1: fixed effect of `FirstVersion_GM` + random effect of `Class` (`(1|Class)`)
-    -   M2: M1 + random effect of `FirstVersion_GM` (`(1 + FirstVersion_GM |Class)`)
-    -   M3: M2 + fixed effect of `Experimental_condition`
-
--   Compare the models on their fit
-
--   What do we learn?
-
--   Make a summary of the best fitting model
-
-::: aside
-[Note:]{style="color: white"} `FirstVersion_GM`[is the score of the pretest centred around the mean, so a score 0 for this variable implies scoring on average for the pretest]{style="color: white"}
-:::
-
-## Divergent transitions...
-
--   Something to worry about!
-
--   Essentially: sampling of parameter estimate values went wrong
-
--   Fixes:
-
-    -   sometimes fine-tuning the sampling algorithm (e.g., `control = list(adapt_delta = 0.9)`) works
-    -   sometimes you need more informative priors
-    -   sometimes the model is just not a good model
-
-## Our fix here for model 3
+## Our Model 3 with custom priors
 
 ```{r}
 #| eval: false
 #| echo: true
+Custom_priors <- 
+  c(
+    set_prior(
+      "normal(1,5)", 
+      class = "b", 
+      coef = "FirstVersion_GM"),
+    set_prior(
+      "normal(3.4,17)", 
+      class = "b", 
+      coef = "Experimental_condition"),
+    set_prior(
+      "student_t(3,0,5)", 
+      class = "sd", 
+      coef = "FirstVersion_GM",
+      group = "Class")
+  )
+```
 
-M3 <- brm(
+
+```{r}
+#| eval: false
+#| echo: true
+M3_custom <- brm(
   SecondVersion ~ FirstVersion_GM + Experimental_condition + (1 + FirstVersion_GM |Class),
   data = WritingData,
+  prior = Custom_priors,
   backend = "cmdstanr",
   cores = 4,
-  control = list(adapt_delta = 0.9),
-  seed = 1975 
+  seed = 1975
 )
 ```
 
-## Our fix here for model 3
+# Prior sensitivity analyses
 
-```{r, out.height = "50%", out.width="50%", echo = FALSE}
-knitr::include_graphics("M3_summary.jpg")
+## Why prior sensitivity analyses?
+
+-   Often we rely on 'arbitrary' chosen (default) weakly informative priors
+
+-   What is the influence of the prior (and the likelihood) on our results?
+
+-   You could ad hoc set new priors and re-run the analyses and compare (a lot of work, without strict sytematical guidelines)
+
+-   Semi-automated checks can be done with `priorsense` package
+
+## Using the `priorsense` package
+
+Recently a package dedicated to prior sensitivity analyses is launched
+
+```{r}
+#| eval: false
+#| echo: true
+# install.packages("remotes")
+remotes::install_github("n-kall/priorsense")
 ```
 
-## Interpretation of results...
+Key-idea: power-scaling (both prior and likelihood)
+
+background reading:
+
+-   <https://arxiv.org/pdf/2107.14054.pdf>
+
+YouTube talk:
+
+-   <https://www.youtube.com/watch?v=TBXD3HjcIps&t=920s>
+
+## Basic table with indices
+
+First check is done by using the `powerscale_sensitivity( )` function
+
+-   column prior contains info on sensitivity for prior (should be lower than 0.05)
+
+-   column likelihood contains info on sensitivity for likelihood (that we want to be high, 'let our data speak')
+
+-   column diagnosis is a verbalization of potential problem (- if none)
+
+```{r}
+#| echo: true
+#| output-location: slide
+powerscale_sensitivity(M3_custom)
+```
+
+## Visualization of prior sensitivity
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| fig-width: 13.5
+#| fig-height: 7.5
+#| cache: true
+#| output-location: slide
+
+powerscale_plot_dens(
+  powerscale_sequence(
+    M3_custom
+    ),
+  variables = c(
+      "b_Intercept",
+      "b_FirstVersion_GM",
+      "b_Experimental_condition"
+    )
+  )
+```
+
+## Visualization of prior sensitivity
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| fig-width: 13.5
+#| fig-height: 7.5
+#| cache: true
+#| output-location: slide
+
+powerscale_plot_dens(
+  powerscale_sequence(
+    M3_custom
+    ),
+  variables = c(
+      "sd_Class__Intercept",
+      "sd_Class__FirstVersion_GM"
+    )
+  )
+```
+
+## Visualization of prior sensitivity
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| cache: true
+#| output-location: slide
+
+powerscale_plot_quantities(
+  powerscale_sequence(
+    M3_custom
+    ),
+  variables = c(
+      "b_Experimental_condition"
+      )
+  )
+```
+
+# Posterior predictive checking
+
+## Check for absolute fit of the model
+
+**Posterior Predictive Checking**
+
+Similar to *prior* predictive checking
+
+-   Simulate data based on the model results (the posterior)
+
+<br>
+
+-   Visualize the simulated data and compare with our observed data
+
+<br>
+
+-   Check how well our model predicts data
+
+
+
+## In `brms`
+
+300 distributions of simulated datasets (scores on `SecondVersion`) overlayed by our observed data (to have an anchoring point)
+
+```{r}
+#| echo: false
+
+set.seed(1975)
+
+pp_check(
+  M3_custom, 
+  ndraws = 300) # number of simulated datasets you wish for
+
+```
+
+## Prediction of individual observations
+
+```{r}
+#| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
+#| output-location: slide
+
+pp_check(
+  M3_custom ,
+  type = "intervals_grouped",
+  group = "Class",
+  ndraws = 300)
+```
+
+# Interpretation of our model
+
+## Results = posterior probibility distribution
 
 Different ways to summarize our results:
 
@@ -148,9 +316,11 @@ Gives a posterior distribution including a certain credible interval that you ca
 ```{r}
 #| eval: true
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 mcmc_areas(
-  M3,
+  M3_custom,
   pars = c(
     "b_FirstVersion_GM",
     "b_Experimental_condition"
@@ -163,7 +333,7 @@ mcmc_areas(
 
 <br>
 
-Almost similar to the previous, only the horizontal spacing changes a bit...
+Almost similar to the previous, only the vertical spacing changes a bit...
 
 <br>
 
@@ -174,12 +344,14 @@ Meanwhile, see how you can easily change the color scheme for `bayesplot` graphs
 ```{r}
 #| eval: true
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 
 color_scheme_set(scheme = "red")
 
 mcmc_areas_ridges(
-  M3,
+  M3_custom,
   pars = c(
     "b_FirstVersion_GM",
     "b_Experimental_condition"
@@ -197,11 +369,13 @@ Here we set one for a 50% and one for a 89% CI
 ```{r}
 #| eval: true
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 color_scheme_set(scheme = "gray")
 
 mcmc_intervals(
-  M3,
+  M3_custom,
   pars = c(
     "b_FirstVersion_GM",
     "b_Experimental_condition"
@@ -226,9 +400,16 @@ What does `as_draws_df()` do?
 ```{r}
 #| eval: true
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
-posterior_PD <- as_draws_df(M3)
-head(posterior_PD)
+posterior_PD <- as_draws_df(M3_custom)
+
+head(posterior_PD %>%
+  select(1:4),
+  10
+  )
+  
 ```
 
 ## Use draws to create a plot using `ggdist` geoms
@@ -277,6 +458,8 @@ We use `posterior_PD` as a starting point (our draws)
 #| warning: false
 #| error: false
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 
 library(ggdist)
@@ -304,6 +487,8 @@ Change the CI's to 50% and 89%
 #| error: false
 #| echo: true
 #| code-line-numbers: "6"
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 Plot <- ggplot(
   posterior_PD,
@@ -330,6 +515,8 @@ Let's make a dotplot... (research shows this is best interpreted) with 100 dots
 #| error: false
 #| echo: true
 #| code-line-numbers: "5|6"
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 Plot <- ggplot(
   posterior_PD,
@@ -356,6 +543,8 @@ We use `pivot_longer(everything())` to stack information on multiple parameters
 #| warning: false
 #| error: false
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 posterior_PD %>% 
   select(
@@ -385,6 +574,8 @@ How to visualize the posterior probability of averages for both groups?
 #| error: false
 #| echo: true
 #| code-line-numbers: "6|7|10"
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 posterior_PD %>% 
   select(
@@ -422,7 +613,7 @@ Code: see separate script called `HOP_script.R`
 
 # here we sample n = 20
 
-S <- as_draws_df(M3) %>% 
+S <- as_draws_df(M3_custom) %>% 
   select(
     # select the necessary parameters to calculate the predicted scores
     b_Intercept, 
@@ -495,7 +686,7 @@ To plot differences between classes we can use class-specific residuals:
 #| warning: false
 #| error: false
 #| echo: true
-head(as_draws_df(M3) %>% 
+head(as_draws_df(M3_custom) %>% 
   select(ends_with(",Intercept]")) %>%
   select(1:3),
   5
@@ -509,8 +700,10 @@ head(as_draws_df(M3) %>%
 #| warning: false
 #| error: false
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
-as_draws_df(M3) %>% 
+as_draws_df(M3_custom) %>% 
   select(ends_with(",Intercept]")) %>%
   pivot_longer(starts_with("r_Class")) %>% 
   mutate(sigma_i = value) %>%
@@ -532,7 +725,7 @@ as_draws_df(M3) %>%
 #| error: false
 #| echo: true
 head(
-  as_draws_df(M3) %>%
+  as_draws_df(M3_custom) %>%
     mutate(
       ICC = (sd_Class__Intercept^2/(sd_Class__Intercept^2 + sigma^2))) %>%
     select(sigma, sd_Class__Intercept, ICC), 
@@ -547,21 +740,28 @@ head(
 #| warning: false
 #| error: false
 #| echo: true
+#| fig-width: 13.5
+#| fig-height: 7.5
 #| output-location: slide
 
-as_draws_df(M3) %>%
+as_draws_df(M3_custom) %>%
   mutate(
     ICC = (sd_Class__Intercept^2/(sd_Class__Intercept^2 + sigma^2))
     ) %>%
   select(ICC) %>%                           
   ggplot(aes(x = ICC)) +                    
-   stat_dotsinterval(
-     quantiles = 100,
-     .width = c(.50,.89)
+   stat_halfeye(
+     aes(fill = after_stat(level)),
+     .width = c(.50,.89,.99)
    ) +
-   scale_x_continuous("marginal posterior", 
+  scale_fill_brewer(na.translate = F
+    ) +
+  scale_x_continuous("Intra Class Correlation", 
                       breaks = seq(.00,.60,by =.05)) + 
-   scale_y_continuous("ICC", breaks = NULL)
+  scale_y_continuous("", breaks = NULL) +
+  labs(
+    fill = "Credible Interval"
+  )
 ```
 
 ## HOP per higher level unit
@@ -580,7 +780,7 @@ Code: see separate script called `HOP_MixedEffects_script.R`
 
 # here we sample n = 20
 library(posterior)
-S <- as_draws_df(M3) %>% 
+S <- as_draws_df(M3_custom) %>% 
   select(
     # select the necessary parameters to calculate the predicted scores
     b_Intercept, 
@@ -791,7 +991,7 @@ We can use the `equivalence_test()` function of the `bayestestR` package
 ```{r}
 #| echo: true
 library(bayestestR)
-equivalence_test(M3)
+equivalence_test(M3_custom)
 ```
 
 ## Visualizing the HDI + ROPE rule
@@ -805,7 +1005,7 @@ We visualize the `equivalence_test()` by adding `plot( )`
 ```{r}
 #| echo: true
 #| output-location: column
-equivalence_test(M3) %>%
+equivalence_test(M3_custom) %>%
   plot()
 
 ```
@@ -816,7 +1016,7 @@ equivalence_test(M3) %>%
 #| echo: true
 library(parameters)
 model_parameters(
-  M3,
+  M3_custom,
   ci_method = "hdi",
   rope_range = c(-1.8,1.8), #sd MarathonTimeM = 17.76 so 17.76*0.1 
   test = c("rope", "pd")
@@ -881,4 +1081,4 @@ Do not hesitate to contact me!
 
 [sven.demaeyer\@uantwerpen.be](mailto:sven.demaeyer@uantwerpen.be){.email}
 
-# `r fontawesome::fa("thumbs-up", "white")` THANK YOU! {background-color="#447099" transition="slide-in"}
+# `r fontawesome::fa("thumbs-up", "white")` KIITOS! {background-color="#447099" transition="slide-in"}

@@ -1071,6 +1071,18 @@ One that I often fall back to is:
 
 <http://mjskay.github.io/tidybayes/>
 
+## My website `r fontawesome::fa("blog")`
+
+I have a website where I share all my talks and posts (I'm not so good in writing regularly...). There you can find some code and tutorial-like writing. 
+
+<br>
+
+<https://sdemaeyer.quarto.pub/posts.html>
+
+```{r, out.height = "70%", out.width="70%", echo = FALSE}
+knitr::include_graphics("Site_Sven.jpg")
+```
+
 ## Questions?
 
 <br>

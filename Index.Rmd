@@ -424,6 +424,12 @@ The research group of Rens van de Schoot (Utrecht University) publishes a lot on
 
 <a href="https://utrechtuniversity.github.io/BayesianEstimation/#quick-overview">https://utrechtuniversity.github.io/BayesianEstimation/#quick-overview </a>
 
+### My website
+
+When I find the time I write short posts about (Bayesian) statistics. Some of the topics touched upon in the workshop are also documented in these posts, where I try to explain certain concepts or workflows. These posts also contain the necessary code!
+
+<a href="https://sdemaeyer.quarto.pub/posts.html">https://sdemaeyer.quarto.pub/posts.html</a>
+
 ### Some example papers
 
 Here some references to articles reporting on Bayesian analyses. 

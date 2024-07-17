@@ -1,0 +1,879 @@
+---
+title: "Applied Bayesian Analyses in R"
+subtitle: "Part2: prior probability distributions"
+author: "Sven De Maeyer"
+format: 
+  revealjs:
+    theme: [simple, My_theme.scss]
+    width: 1422
+    height: 805
+    slide-number: true
+self-contained: true
+execute: 
+  echo: false
+  include: true
+  output: true
+code:
+  code-copy: true
+  code-line-numbers: true
+code-annotations: hover
+---
+
+# Intro
+
+```{r}
+library(here)
+library(tidyverse)
+library(brms)
+library(bayesplot)
+library(ggmcmc)
+library(patchwork)
+library(priorsense)
+library(ggtext)
+
+load(
+  file = here("Presentations", "MarathonData.RData")
+)
+
+MarathonTimes_Mod2 <-
+  readRDS(file = 
+            here("Presentations",
+              "Output",
+              "MarathonTimes_Mod2.RDS")
+          )
+
+# Setting a plotting theme
+theme_set(theme_linedraw() +
+            theme(text = element_text(family = "Times", size = 10),
+                  panel.grid = element_blank())
+)
+```
+
+```{css echo=FALSE}
+.small-code{
+  font-size: 75%  
+}
+```
+
+## When to Worry and How to Avoid Misuse of Bayesian Statistics {.smaller}
+
+by Laurent Smeets and Rens van der Schoot
+
+::: columns
+::: {.column width="33%"}
+Before estimating the model:
+
+<b>1. Do you understand the priors?</b>
+:::
+
+::: {.column width="33%"}
+After estimation before inspecting results:
+
+2.  Does the trace-plot exhibit convergence?
+3.  Does convergence remain after doubling the number of iterations?
+4.  Does the posterior distribution histogram have enough information?
+5.  Do the chains exhibit a strong degree of autocorrelation?
+6.  Do the posterior distributions make substantive sense?
+:::
+
+::: {.column width="33%"}
+Understanding the exact influence of the priors
+
+7.  Do different specification of the multivariate variance priors influence the results?
+8.  Is there a notable effect of the prior when compared with non-informative priors?
+9.  Are the results stable from a sensitivity analysis?
+10. Is the Bayesian way of interpreting and reporting model results used?
+:::
+:::
+
+::: aside
+Tutorial source: <https://www.rensvandeschoot.com/brms-wambs/>
+:::
+
+# Focus on the [priors]{style="color: #447099"} before estimation
+
+## Remember: priors come in many disguises
+
+::: columns
+::: {.column width="50%"}
+[Uninformative/Weakly informative]{style="color: #447099"}
+
+When objectivity is crucial and you want *let the data speak for itself...*
+:::
+
+::: {.column width="50%"}
+[Informative]{style="color: #447099"}
+
+When including significant information is crucial
+
+-   previously collected data
+-   results from former research/analyses
+-   data of another source
+-   theoretical considerations
+-   elicitation
+:::
+:::
+
+## What do we exactly mean by "informativeness"?
+
+::: columns
+::: {.column width="50%"}
+```{r, out.height = "70%", out.width="70%", echo = FALSE}
+knitr::include_graphics("priors_vanderschoot.jpg")
+```
+:::
+
+::: {.column width="50%"}
+-   informativeness refers to how strong the information in the prior determines the posterior
+
+or
+
+- *"The ultimate significance of this information, and hence the prior itself, depends on exactly how that information manifests in the final analysis."* ^[Gelman, A., Simpson, D., & Betancourt, M. (2017). The Prior Can Often Only Be Understood in the Context of the Likelihood. *Entropy, 19(10)*, Article 10. https://doi.org/10.3390/e19100555]
+
+
+:::
+:::
+
+:::aside
+Figure from: Van De Schoot, R., et al. (2021). Bayesian statistics and modelling. *Nature Reviews Methods Primers*, 1(1). https://doi.org/10.1038/s43586-020-00001-2]
+:::
+
+## "Beautifull parents have more daughters" [^a]
+
+::: columns
+::: {.column width="50%"}
+```{r, out.height = "70%", out.width="70%", echo = FALSE}
+knitr::include_graphics("Attractiveness_birthBoys.jpg")
+```
+:::
+
+::: {.column width="50%"}
+
+*If I dichotomize the respondents into those who are rated "very attractive" and everyone else, the difference in the proportion of sons between the two groups (0.52 vs. 0.44) is statistically significant (t = 2.44, p\<0.05).*
+
+n = 3000
+:::
+:::
+
+[^a]: Kanazawa S. (2007). Beautiful parents have more daughters: a further implication of the generalized Trivers-Willard hypothesis (gTWH). Journal of theoretical biology, 244(1), 133–140. https://doi.org/10.1016/j.jtbi.2006.07.017
+
+## Impact of priors ... ^[Gelman, A., Simpson, D., & Betancourt, M. (2017). The Prior Can Often Only Be Understood in the Context of the Likelihood. *Entropy, 19(10)*, Article 10. https://doi.org/10.3390/e19100555]
+
+Parameter: difference in % girls for both groups
+<br>
+Best estimate using a "flat prior": 8% difference between both groups
+
+```{r}
+Prior_uniform <- ggplot( ) +
+  stat_function(
+    fun = dunif,    # We use the normal distribution
+    args = list(min = -1, max = 1), # 
+    xlim = c(-1.1,1.1)
+  ) +
+  scale_y_continuous(name = "density") +
+  scale_x_continuous(breaks = c(-1,-0.5,0,.5,1)) +
+  labs(title = "Prior for the difference in prop girls",
+       subtitle = "U(0,1)")
+
+Posterior_1 <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0.08, sd = 0.033), # 
+    xlim = c(-1.1,1.1)
+  ) +
+  scale_y_continuous(name = "density") +
+  scale_x_continuous(breaks = c(-1,-0.5,0,.5,1)) +
+  labs(title = "Posterior for the difference in prop girls",
+       subtitle = "N(0.08,0.033)")
+
+Prior_uniform + Posterior_1 + plot_layout(ncol = 2)
+```
+
+## Impact of priors ... ^[Gelman, A., Simpson, D., & Betancourt, M. (2017). The Prior Can Often Only Be Understood in the Context of the Likelihood. *Entropy, 19(10)*, Article 10. https://doi.org/10.3390/e19100555]
+
+Parameter: difference in % girls for both groups
+<br>
+What we know from extensive research: 
+
+- proportion of girl births is stable around 48.5% 
+- only small effects due to selective abortion, infanticide, and extreme poverty and famine
+- effects around 0.5% difference
+
+So, we could argue for a full informative prior like a normal distribution with mean = 0 and sd = 0.001
+
+## Impact of priors ... ^[Gelman, A., Simpson, D., & Betancourt, M. (2017). The Prior Can Often Only Be Understood in the Context of the Likelihood. *Entropy, 19(10)*, Article 10. https://doi.org/10.3390/e19100555]
+
+Parameter: difference in % girls for both groups
+<br>
+
+Best estimate using a using a full informative prior: 0.007% difference
+
+
+```{r}
+Prior_uniform <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0, sd = 0.001), # 
+    xlim = c(-0.25,0.25)
+  ) +
+  scale_y_continuous(name = "density") +
+  scale_x_continuous(breaks = c(-0.25,0,.25)) +
+  labs(title = "Prior for the difference in prop girls",
+       subtitle = "N(0, 0.001)")
+
+Posterior_1 <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0.00007, sd = 0.001), # 
+    xlim = c(-0.25,0.25)
+  ) +
+  scale_y_continuous(name = "density") +
+  scale_x_continuous(breaks = c(-.25,0,.25)) +
+  labs(title = "Posterior for the difference in prop girls",
+       subtitle = "N(0.00007, 0.001)")
+
+Prior_uniform + Posterior_1 + plot_layout(ncol = 2)
+```
+
+## Impact of priors ... ^[Gelman, A., Simpson, D., & Betancourt, M. (2017). The Prior Can Often Only Be Understood in the Context of the Likelihood. *Entropy, 19(10)*, Article 10. https://doi.org/10.3390/e19100555]
+
+Parameter: difference in % girls for both groups
+<br>
+
+Best estimate using a using a weakly informative prior: 0.2% difference
+
+
+```{r}
+Prior_uniform <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0, sd = 0.005), # 
+    xlim = c(-0.25,0.25)
+  ) +
+  scale_y_continuous(name = "density") +
+  scale_x_continuous(breaks = c(-0.25,0,.25)) +
+  labs(title = "Prior for the difference in prop girls",
+       subtitle = "N(0, 0.005)")
+
+Posterior_1 <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0.002, sd = 0.005), # 
+    xlim = c(-0.25,0.25)
+  ) +
+  scale_y_continuous(name = "density") +
+  scale_x_continuous(breaks = c(-0.25,0,.25)) +
+  labs(title = "Posterior for the difference in prop girls",
+       subtitle = "N(0.002,0.005)")
+
+Prior_uniform + Posterior_1 + plot_layout(ncol = 2)
+```
+
+
+## Impact of priors ... ^[Gelman, A., Simpson, D., & Betancourt, M. (2017). The Prior Can Often Only Be Understood in the Context of the Likelihood. *Entropy, 19(10)*, Article 10. https://doi.org/10.3390/e19100555]
+
+What's the problem?
+
+- difference in proportion girls in population is almost certainly less than 1%
+- available data (3000 surveyed respondents) is weak
+- uniform prior is a strong statement: *difference can be large!*
+
+Prior can only be interpreted in the context of the likelihood
+
+## Uninformative priors can become very informative
+
+-   For each parameter in the model we set priors
+
+-   In a complex model there can be a complex interplay between priors
+
+-   Setting weak priors for each single parameter may result in a lot of information...
+
+## Informativeness compared to the likelihood...
+
+Informativeness can only be judged in comparison to the likelihood
+
+-   Prior predictive checking (see later) can help to see the informativeness on the scale of the outcome ==\> especially helpful for large models
+
+Suggested help source: https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
+
+## `brms` defaults
+
+-   Weakly informative priors
+
+-   If dataset is big, impact of priors is minimal
+
+-   But, always better to know what you are doing!
+
+-   Complex models might run into convergence issues $\rightarrow$ specifying more informative priors might help!
+
+So, how to deviate from the defaults?
+
+## We have to think!! {background-color="#447099" transition="slide-in"}
+
+Remember our model 2 for Marathon Times (see slides Part 1):
+
+$$\begin{aligned}
+& \text{MarathonTimeM}_i \sim N(\mu,\sigma_e)\\
+& \mu = \beta_0 + \beta_1*\text{km4week}_i + \beta_2*\text{sp4week}_i 
+\end{aligned}$$
+
+<i>What are potential priors for each of the parameters?</i>
+
+<i>What do we need to be aware of to start thinking in priors?</i>
+
+<br> <br>
+
+Note: I centred both `km4week` and `sp4week` around their mean!
+
+## Preparations for applying it to Marathon model
+
+Packages needed:
+
+```{r}
+#| echo: true
+#| eval: false
+
+library(here)
+library(tidyverse)
+library(brms)
+library(bayesplot)
+library(ggmcmc)
+library(patchwork)
+library(priorsense)
+```
+
+## Preparations for applying it to Marathon model
+
+Load the dataset and the model:
+
+```{r}
+#| echo: true
+#| eval: false
+load(
+  file = here("Presentations", "MarathonData.RData")
+)
+
+MarathonTimes_Mod2 <-
+  readRDS(file = 
+            here("Presentations",
+              "Output",
+              "MarathonTimes_Mod2.RDS")
+          )
+```
+
+## Check priors used by `brms`
+
+Function: `get_prior( )`
+
+Remember our model 2 for Marathon Times:
+
+$$\begin{aligned}
+& \text{MarathonTimeM}_i \sim N(\mu,\sigma_e)\\
+& \mu = \beta_0 + \beta_1*\text{km4week}_i + \beta_2*\text{sp4week}_i 
+\end{aligned}$$
+
+```{r}
+#| echo: true
+#| eval: false
+
+get_prior(
+  MarathonTimeM ~ 1 + km4week + sp4week, 
+  data = MarathonData
+)
+```
+
+## Check priors used by `brms`
+
+```{r, out.height = "70%", out.width="70%", echo = FALSE}
+knitr::include_graphics("Priors_Mod2.jpg")
+```
+
+-   `prior`: type of prior distribution
+-   `class`: parameter class (with `b` being population-effects)
+-   `coef`: name of the coefficient within parameter class
+-   `group`: grouping factor for group-level parameters (when using mixed effects models)
+-   `resp` : name of the response variable when using multivariate models
+-   `lb` & `ub`: lower and upper bound for parameter restriction
+
+## Visualizing priors
+
+The best way to make sense of the priors used is visualizing them!
+
+Many options:
+
+-   The Zoo of Distributions <https://ben18785.shinyapps.io/distribution-zoo/>
+-   making your own visualizations
+
+
+## Visualizing priors with `ggplot2`
+
+Generate a plot for the prior of the effects of independent variables
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| output-location: slide
+#| fig-cap: "Probability density plots for slopes of both predictors"
+#| fig-cap-location: margin
+# Setting a plotting theme
+theme_set(theme_linedraw() +
+            theme(text = element_text(family = "Times", size = 10),
+                  panel.grid = element_blank(),
+                  plot.title = element_markdown()))
+
+# Say we set a Normal distribution with mean = 0 and sd = 10
+Prior_betas <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0, sd = 10), # 
+    xlim = c(-20,20)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the effects of independent variables",
+       subtitle = "N(0,10)")
+
+Prior_betas 
+```
+
+
+## Visualizing priors with `ggplot2`
+
+Generate the plot for the prior of the Intercept (mu)
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| output-location: slide
+#| fig-cap: "Probability density plot for the intercept"
+#| fig-cap-location: margin
+
+library(metRology)
+
+# Use the brms default t-distribution
+
+Prior_mu <- ggplot( ) +
+  stat_function(
+    fun = dt.scaled,    # We use the dt.scaled function of metRology
+    args = list(df = 3, mean = 199.2, sd = 24.9), # 
+    xlim = c(120,300)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the intercept",
+       subtitle = "student_t(3,199.2,24.9)")
+
+Prior_mu 
+```
+
+## Visualizing priors with `ggplot2`
+
+Generate the plot for the prior of the error variance (sigma)
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| output-location: slide
+#| fig-cap: "Probability density plot for the error variance"
+#| fig-cap-location: margin
+
+# Use the brms default t-distribution
+
+Prior_sigma <- ggplot( ) +
+  stat_function(
+    fun = dt.scaled,    # We use the dt.scaled function of metRology
+    args = list(df = 3, mean = 0, sd = 24.9), # 
+    xlim = c(0,6)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the residual variance",
+       subtitle = "student_t(3,0,24.9)")
+
+Prior_sigma  
+```
+
+## Understanding priors... Another example {background-color="#447099" transition="slide-in"}
+
+Experimental study (pretest - posttest design) with 3 conditions:
+
+-   control group
+-   experimental group 1
+-   experimental group 2
+
+Model:
+
+$$\begin{aligned}
+  & Posttest_{i}  \sim N(\mu,\sigma_{e_{i}})\\
+  & \mu = \beta_0 + \beta_1*\text{Pretest}_{i} + \beta_2*\text{Exp_cond1}_{i} + \beta_3*\text{Exp_cond2}_{i}
+\end{aligned}$$
+
+With: pretest and posttest standardized (mean = 0 ; sd = 1)
+
+Our job: coming up with priors that reflect that we expect both conditions to have a positive effect (hypothesis based on literature) and no indications that one experimental condition will outperform the other.
+
+## Understanding priors... Another example
+
+-   Assuming pre- and posttest are standardized
+-   Assuming no increase between pre- and posttest in control condition
+
+```{r}
+# Generate the plot for the prior of the Intercept (mu)
+Prior_mu <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use a normal distribution
+    args = list(mean = 0, sd = .5), # 
+    xlim = c(-1,1)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the intercept",
+       subtitle = "N(0,0.5)")
+
+Prior_mu
+```
+
+## Understanding priors... Another example
+
+-   Assuming a strong correlation between pre- and posttest
+
+```{r}
+# Generate the plot for the prior of beta 1
+Prior_beta1 <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the dt.scaled function of metRology
+    args = list(mean = 1, sd = 0.5), # 
+    xlim = c(-1,3)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the effect of pretest score",
+       subtitle = "N(1,0.5)")
+
+Prior_beta1
+```
+
+## Understanding priors... Another example
+
+-   Assuming a small effect of experimental conditions
+-   No difference between both experimental conditions
+
+```{r}
+# Generate the plot for the prior of the effects experimental conditions
+Prior_betas <- ggplot( ) +
+  stat_function(
+    fun = dnorm,    # We use the normal distribution
+    args = list(mean = 0.2, sd = .6), # 
+    xlim = c(-1,2)
+  ) +
+  scale_y_continuous(name = "density") +
+  labs(title = "Prior for the effects of experimental conditions",
+       subtitle = "N(0.2,0.6)")
+
+Prior_betas
+```
+
+Remember Cohen's d: 0.2 = small effect size; 0.5 = medium effect size; 0.8 or higher = large effect size
+
+## Setting custom priors in `brms`
+
+<br>
+
+Setting our custom priors can be done with `set_prior( )` command
+
+<br>
+
+E.g., change the priors for the beta's (effects of `km4week` and `sp4week`):
+
+<br>
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| cache: true
+
+
+Custom_priors <- 
+  c(
+    set_prior(
+      "normal(0,10)", 
+      class = "b", 
+      coef = "km4week"),
+    set_prior(
+      "normal(0,10)", 
+      class = "b", 
+      coef = "sp4week")
+    )
+
+```
+
+# Prior Predictive Check
+
+## Put priors in the context of the likelihood
+
+<br>
+
+Did you set sensible priors? How informative are the priors (taken together)?
+
+<br>
+
+-   Simulate data based on the model and the priors
+
+<br>
+
+-   Visualize the simulated data and compare with real data
+
+<br>
+
+-   Check if the plot shows impossible simulated datasets
+
+
+
+## In `brms`
+
+<br>
+
+Step 1: Fit the model with custom priors with option `sample_prior="only"`
+
+<br>
+
+```{r}
+#| message: false
+#| warning: false
+#| error: false
+#| echo: true
+#| eval: false
+#| cache: true
+#| code-line-numbers: "5|8"
+Fit_Model_priors <- 
+  brm(
+    MarathonTimeM ~ 1 + km4week + sp4week, 
+    data = MarathonData,
+    prior = Custom_priors,
+    backend = "cmdstanr",
+    cores = 4,
+    sample_prior = "only"
+    )
+```
+
+```{r}
+Fit_Model_priors <- readRDS(
+  here(
+    "Presentations",
+    "Output",
+    "Fit_Model_priors.RDS"
+  )
+)
+```
+
+::: {.callout-note}
+This will not work with the default priors of `brms` as `brms`sets flat priors for beta's. So, you have to set custom priors for the effects of independent variables to be able to perform the prior predictive checks.
+:::
+
+## In `brms`
+
+<br>
+
+Step 2: visualize the data with the `pp_check( )` function
+
+<br>
+
+```{r}
+#| echo: true
+#| eval: false
+
+set.seed(1975)
+
+pp_check(
+  Fit_Model_priors, 
+  ndraws = 300) # number of simulated datasets you wish for
+
+```
+
+## In `brms`
+
+300 distributions of simulated datasets (marathon times) overlayed by our observed data (to have an anchoring point)
+
+```{r}
+#| echo: false
+
+set.seed(1975)
+
+pp_check(
+  Fit_Model_priors, 
+  ndraws = 300) # number of simulated datasets you wish for
+
+```
+
+:::aside
+*Notice how we get even datasets that contain a proportion of marathon times faster than 0 minutes!!*
+:::
+
+## Check some summary statistics
+
+-   How are summary statistics of simulated datasets (e.g., median, min, max, ...) distributed over the datasets?
+
+-   How does that compare to our real data?
+
+-   Use `type = "stat"` argument within `pp_check()`
+
+```{r}
+#| echo: true
+#| eval: false
+
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "median")
+```
+
+## Check some summary statistics
+
+300 medians of simulated datasets (marathon times) overlayed by the median of our observed data (to have an anchoring point)
+
+```{r}
+#| echo: false
+#| eval: true
+
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "median")
+```
+
+:::aside
+*Notice that some simulated datasets would imply a very low median marathon time (e.g., lower than 100 minutes)*
+:::
+
+## Check some summary statistics
+
+-   Let's check the minima of all simulated datasets based on our priors
+
+```{r}
+#| echo: true
+#| eval: false
+
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "min")
+```
+
+## Check some summary statistics
+
+300 fastest marathon times (in the simulated datasets) overlayed by the fastest observed time in our data (to have an anchoring point)
+
+```{r}
+#| echo: false
+#| eval: true
+
+pp_check(Fit_Model_priors, 
+         type = "stat", 
+         stat = "min")
+```
+
+:::aside
+*Notice that the majority of simulated datasets would imply a faster and even impossible fastest marathon time (e.g., lower than 0 minutes)*
+:::
+
+## Possible conclusion
+
+*Put priors in the context of the likelihood*
+
+The priors 
+
+- N(0,10) for the betas
+- t(3,199.2,24.9) for the intercept
+- t(3,0,24.9) for the error variance
+
+Are non-informative!! They will not predict our data perfectly. 
+
+# Prior sensitivity analyses
+
+## Why prior sensitivity analyses?
+
+-   Often we rely on 'arbitrary' chosen (default) weakly informative priors
+
+-   What is the influence of the prior (and the likelihood) on our results?
+
+-   You could ad hoc set new priors and re-run the analyses and compare (a lot of work, without strict sytematical guidelines)
+
+-   Semi-automated checks can be done with `priorsense` package
+
+## Using the `priorsense` package
+
+Recently a package dedicated to prior sensitivity analyses is launched
+
+```{r}
+#| eval: false
+#| echo: true
+# install.packages("remotes")
+remotes::install_github("n-kall/priorsense")
+```
+
+Key-idea: power-scaling (both prior and likelihood)
+
+background reading:
+
+-   <https://arxiv.org/pdf/2107.14054.pdf>
+
+YouTube talk:
+
+-   <https://www.youtube.com/watch?v=TBXD3HjcIps&t=920s>
+
+## Basic table with indices
+
+First check is done by using the `powerscale_sensitivity( )` function
+
+-   column prior contains info on sensitivity for prior (should be lower than 0.05)
+
+-   column likelihood contains info on sensitivity for likelihood (that we want to be high, 'let our data speak')
+
+-   column diagnosis is a verbalization of potential problem (- if none)
+
+```{r}
+#| echo: true
+#| output-location: slide
+powerscale_sensitivity(MarathonTimes_Mod2)
+```
+
+## Visualization of prior sensitivity
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| cache: true
+#| output-location: slide
+
+powerscale_plot_dens(
+  powerscale_sequence(
+    MarathonTimes_Mod2
+    ),
+  variables = c(
+      "b_Intercept",
+      "b_km4week",
+      "b_sp4week"
+    )
+  )
+```
+
+## Visualization of prior sensitivity
+
+```{r}
+#| echo: true
+#| warning: false
+#| message: false
+#| cache: true
+#| output-location: slide
+
+powerscale_plot_quantities(
+  powerscale_sequence(
+    MarathonTimes_Mod2
+    ),
+  variables = c(
+      "b_km4week"
+      )
+  )
+```
+
